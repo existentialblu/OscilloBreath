@@ -1,55 +1,29 @@
 import numpy as np
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
-import pyedflib
+from data_loader import load_flow_data
 from tkinter import Tk, filedialog
 from pathlib import Path
 import webbrowser
 from scipy.signal import savgol_filter
 
-def select_edf_file():
-    """Open file picker to select an EDF file"""
+def select_data_file():
+    """Open file picker to select data file or folder"""
     root = Tk()
     root.withdraw()
     root.attributes('-topmost', True)
 
     file_path = filedialog.askopenfilename(
-        title="Select EDF file to analyze",
-        filetypes=[("EDF files", "*.edf"), ("All files", "*.*")]
+        title="Select data file (ResMed EDF or Philips folder)",
+        filetypes=[("Data files", "*.edf *.005 *.006"), ("All files", "*.*")]
     )
+
+    # If they selected a Philips file, use its parent folder
+    if file_path and Path(file_path).suffix in ['.005', '.006', '.000', '.001', '.002']:
+        file_path = str(Path(file_path).parent)
+
     root.destroy()
     return file_path
-
-def read_flow_data(edf_path):
-    """Extract flow rate data from EDF file"""
-    print(f"Reading {Path(edf_path).name}...")
-
-    with pyedflib.EdfReader(edf_path) as f:
-        signal_labels = f.getSignalLabels()
-        print(f"Available signals: {signal_labels}")
-
-        flow_keywords = ['flow', 'Flow', 'FLOW']
-        flow_idx = None
-
-        for i, label in enumerate(signal_labels):
-            if any(keyword in label for keyword in flow_keywords):
-                flow_idx = i
-                print(f"Found flow signal: {label}")
-                break
-
-        if flow_idx is None:
-            print("Available signals:")
-            for i, label in enumerate(signal_labels):
-                print(f"  [{i}] {label}")
-            raise ValueError("Could not find flow signal. Please check signal names above.")
-
-        flow = f.readSignal(flow_idx)
-        sample_rate = f.getSampleFrequency(flow_idx)
-
-        print(f"Sample rate: {sample_rate} Hz")
-        print(f"Duration: {len(flow)/sample_rate/3600:.2f} hours")
-
-    return flow, sample_rate
 
 def detect_phase_transitions(flow, sample_rate, window_seconds=60):
     """
@@ -411,15 +385,16 @@ def main():
     print()
 
     # Select file
-    edf_path = select_edf_file()
-    if not edf_path:
+    data_path = select_data_file()
+    if not data_path:
         print("No file selected. Exiting.")
         return
 
-    filename = Path(edf_path).stem
+    filename = Path(data_path).stem
 
-    # Read data
-    flow, sample_rate = read_flow_data(edf_path)
+    # Read data (automatically detects ResMed or Philips format)
+    print()
+    flow, sample_rate, data_type = load_flow_data(data_path)
 
     # Detect transitions
     print()

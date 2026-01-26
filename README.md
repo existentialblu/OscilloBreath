@@ -18,44 +18,54 @@ Traditional metrics count apneas and hypopneas. We measure how *violently* your 
 
 ## Features
 
-### 1. Phase Space Analysis (`run.bat`)
+### Universal Tools (Support Both ResMed & Philips):
+
+#### 1. Phase Space Analysis (`run.bat`)
 - Visualize breathing as a phase space portrait (flow vs dFlow/dt)
 - See your respiratory attractor structure
 - Color-coded by time to show evolution
 - Compare APAP chaos vs ASV stability
+- ✅ **Works with both ResMed and Philips**
 
-### 2. Longitudinal Tracker (`run_longitudinal.bat`)
-- Track oscillator metrics over months/years
-- See the exact moment ASV stabilized your breathing
-- Multiple metrics: flow variability, derivative violence, attractor tightness, etc.
-- Smoothed trends to cut through daily noise
-
-### 3. Suffering Tracker (`run_suffering_tracker.bat`)
-- **The one metric that matters:** Derivative Range
-- Track violence of breathing transitions over time
-- Color-coded: Red = bad nights, Green = good nights
-- Shows your improvement percentage
-
-### 4. Single Night Deep Dive (`run_single_night.bat`)
+#### 2. Single Night Deep Dive (`run_single_night.bat`)
 - See *when* during a single night suffering occurred
 - 5-minute windowed analysis
 - Identifies worst/best periods
 - Compare sleep onset, REM periods, settings changes
+- ✅ **Works with both ResMed and Philips**
 
-### 5. Phase Transition Analyzer (`run_phase_transitions.bat`)
+#### 3. Phase Transition Analyzer (`run_phase_transitions.bat`)
 - Detect when oscillator changes states
 - Get "Transitions/Hour" metric (AHI-like but for state changes)
 - Visual markers showing exact transition moments
 - Less correlated with suffering than expected, but cool visualization
+- ✅ **Works with both ResMed and Philips**
 
-### 6. Lyapunov Exponent Analysis (`run_lyapunov.bat`)
+#### 4. Lyapunov Exponent Analysis (`run_lyapunov_fast.bat`)
 - **The chaos metric** - Largest Lyapunov Exponent
 - Measures fundamental stability vs chaos of the oscillator
-- Positive = chaotic (sensitive to perturbations)
-- Zero = periodic (limit cycle)
-- Negative = stable (well-damped)
+- Positive = responsive/adaptive (good!)
+- Near-zero = rigid periodic (bad)
+- Negative = over-damped (sluggish)
 - 3D phase space reconstruction using time-delay embedding
-- Most computationally intensive (5-15 minutes per file)
+- Optimized version (2-5 minutes per file)
+- ✅ **Works with both ResMed and Philips**
+
+### ResMed-Only Tools (Not Yet Updated):
+
+#### 5. Longitudinal Tracker (`run_longitudinal.bat`)
+- Track oscillator metrics over months/years
+- See the exact moment ASV stabilized your breathing
+- Multiple metrics: flow variability, derivative violence, attractor tightness, etc.
+- Smoothed trends to cut through daily noise
+- ⚠️ **ResMed EDF only** (Philips support coming soon)
+
+#### 6. Suffering Tracker (`run_suffering_tracker.bat`)
+- **The one metric that matters:** Derivative Range
+- Track violence of breathing transitions over time
+- Color-coded: Red = bad nights, Green = good nights
+- Shows your improvement percentage
+- ⚠️ **ResMed EDF only** (Philips support coming soon)
 
 ## Installation
 
@@ -93,15 +103,15 @@ Dependencies:
 ## Usage
 
 ### ResMed Users:
-1. **Single night:** Run any `.bat` file and select an EDF file
-2. **Longitudinal:** Select a folder containing multiple EDF files
+1. **Single night:** Run any universal tool `.bat` file and select an EDF file
+2. **Longitudinal:** Use `run_longitudinal.bat` or `run_suffering_tracker.bat` and select a folder containing multiple EDF files
 
 ### Philips Users:
 1. Copy entire SD card contents to a folder (all .000, .001, .002, .005, .006 files)
-2. **Single night:** Run any `.bat` file and select the folder
-3. **Longitudinal:** Select parent folder containing multiple date folders
+2. **Single night:** Run any universal tool `.bat` file and select any file in the folder (it will automatically use the parent folder)
+3. **Longitudinal:** Not yet supported (use single-night analysis only)
 
-**Note:** The software automatically detects whether you're using ResMed or Philips data.
+**Note:** Universal tools automatically detect whether you're using ResMed or Philips data. Look for the ✅ icon in the Features section.
 
 ### General:
 1. **First time:** Run one of the `.bat` files to analyze your data
