@@ -73,14 +73,40 @@ Dependencies:
 - plotly - Interactive plots
 - pyedflib - ResMed EDF file reading
 - scipy - Signal processing
+- cryptography - Philips DreamStation 2 decryption
+
+## Supported Devices
+
+### ResMed
+- **AirSense 10 / AirCurve 10** series (APAP, CPAP, ASV)
+- Data format: Standard EDF files from SD card
+- File pattern: `YYYYMMDD_HHMMSS_BRP.edf`
+
+### Philips Respironics
+- **DreamStation** (original)
+- **DreamStation 2** (encrypted format - automatically decrypted)
+- **System One** series
+- Data format: Proprietary binary files (.000, .001, .002, .005, .006)
+- Folder-based: All files from SD card session
+- **Note:** DreamStation 2 uses AES-256 encryption which is transparently handled
 
 ## Usage
 
+### ResMed Users:
+1. **Single night:** Run any `.bat` file and select an EDF file
+2. **Longitudinal:** Select a folder containing multiple EDF files
+
+### Philips Users:
+1. Copy entire SD card contents to a folder (all .000, .001, .002, .005, .006 files)
+2. **Single night:** Run any `.bat` file and select the folder
+3. **Longitudinal:** Select parent folder containing multiple date folders
+
+**Note:** The software automatically detects whether you're using ResMed or Philips data.
+
+### General:
 1. **First time:** Run one of the `.bat` files to analyze your data
-2. **Single night:** Use `run.bat` or `run_single_night.bat` and pick one EDF file
-3. **Longitudinal:** Use `run_longitudinal.bat` or `run_suffering_tracker.bat` and pick a folder containing multiple EDF files
-4. **Output:** All results saved to `output/` folder as interactive HTML
-5. **Screenshots:** Click the camera icon in the plot toolbar to save PNG
+2. **Output:** All results saved to `output/` folder as interactive HTML
+3. **Screenshots:** Click the camera icon in the plot toolbar to save PNG
 
 ## The Science (Sort Of)
 
@@ -123,6 +149,16 @@ This tool was built by someone self-managing their ASV after sleep medicine prov
 
 Key insight from an audio engineer partner: **Unused headroom in your pressure range affects the transfer function.** Tightening PS range to actually-used values (1-7.4 instead of having unused upper range) lets the ASV's control algorithm respond more precisely to your actual breathing dynamics.
 
+### Philips DreamStation 2 Decryption
+
+Philips encrypts DreamStation 2 data with AES-256-GCM to lock users out of their own data. OscilloBreath includes a Python port of [OSCAR](https://www.sleepfiles.com/OSCAR/)'s decryption implementation, which reverse-engineered the encryption in 2022.
+
+**The encryption key is literally:** `"Patient access to their own data"`
+
+The OSCAR developers made a statement with that. We stand with them - your health data belongs to YOU.
+
+**Technical details:** Multi-stage decryption using AES-256-ECB, PBKDF2-SHA256 (10,000 iterations), and AES-256-GCM. Implementation based on OSCAR's `prs1_loader.cpp`.
+
 ## File Structure
 
 ```
@@ -133,15 +169,20 @@ OscilloBreath/
 ├── single_night_suffering.py       # When suffering occurred
 ├── phase_transition_analyzer.py    # State change detection
 ├── lyapunov_analyzer.py           # Chaos analysis (LLE)
+├── lyapunov_analyzer_fast.py      # Optimized version with downsampling
+├── philips_loader.py              # Philips DreamStation parser + decryption
+├── data_loader.py                 # Universal loader (auto-detects format)
 ├── run.bat                         # Launch single night analysis
 ├── run_longitudinal.bat           # Launch longitudinal analysis
 ├── run_suffering_tracker.bat      # Launch suffering tracker
 ├── run_single_night.bat           # Launch single night deep dive
 ├── run_phase_transitions.bat      # Launch transition analyzer
 ├── run_lyapunov.bat               # Launch Lyapunov analysis
+├── run_lyapunov_fast.bat          # Launch fast Lyapunov analysis
 ├── requirements.txt               # Python dependencies
 ├── README.md                      # This file
 ├── README.txt                     # Plain text instructions
+├── LICENSE                        # MIT License
 └── output/                        # Generated plots (not in git)
 ```
 
