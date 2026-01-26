@@ -48,6 +48,15 @@ Traditional metrics count apneas and hypopneas. We measure how *violently* your 
 - Visual markers showing exact transition moments
 - Less correlated with suffering than expected, but cool visualization
 
+### 6. Lyapunov Exponent Analysis (`run_lyapunov.bat`)
+- **The chaos metric** - Largest Lyapunov Exponent
+- Measures fundamental stability vs chaos of the oscillator
+- Positive = chaotic (sensitive to perturbations)
+- Zero = periodic (limit cycle)
+- Negative = stable (well-damped)
+- 3D phase space reconstruction using time-delay embedding
+- Most computationally intensive (5-15 minutes per file)
+
 ## Installation
 
 ### Requirements
@@ -92,6 +101,18 @@ Violence = arousals = fragmented sleep = suffering.
 
 It's not about the size of the swings, it's about how aggressively you transition between states. Smooth evolution through your attractor = good. Violent jumps = bad.
 
+### Lyapunov Exponents: The Chaos Metric
+
+The **Largest Lyapunov Exponent (LLE)** measures the fundamental nature of your oscillator:
+
+- **Positive LLE**: Chaotic dynamics - nearby trajectories diverge exponentially. Your breathing is unpredictable and sensitive to perturbations.
+- **Zero LLE**: Periodic/neutral - stable limit cycle behavior.
+- **Negative LLE**: Convergent/damped - trajectories converge, stable predictable system.
+
+This is more fundamental than derivative range because it characterizes the *type* of dynamics (chaotic vs stable), not just the violence. A well-tuned ASV should transform a positive-LLE chaotic oscillator into a near-zero or negative-LLE stable one.
+
+**Technical details**: Uses time-delay embedding (Takens' theorem) to reconstruct the attractor from 1D flow data, then applies Rosenstein's algorithm to measure trajectory divergence rates.
+
 ### Self-Managed ASV Tuning
 
 This tool was built by someone self-managing their ASV after sleep medicine proved useless for UARS and high loop gain ("it's just TeCsA" 🙄).
@@ -117,13 +138,16 @@ OscilloBreath/
 ├── suffering_tracker.py            # The one metric that matters
 ├── single_night_suffering.py       # When suffering occurred
 ├── phase_transition_analyzer.py    # State change detection
+├── lyapunov_analyzer.py           # Chaos analysis (LLE)
 ├── run.bat                         # Launch single night analysis
 ├── run_longitudinal.bat           # Launch longitudinal analysis
 ├── run_suffering_tracker.bat      # Launch suffering tracker
 ├── run_single_night.bat           # Launch single night deep dive
 ├── run_phase_transitions.bat      # Launch transition analyzer
+├── run_lyapunov.bat               # Launch Lyapunov analysis
 ├── requirements.txt               # Python dependencies
 ├── README.md                      # This file
+├── README.txt                     # Plain text instructions
 └── output/                        # Generated plots (not in git)
 ```
 

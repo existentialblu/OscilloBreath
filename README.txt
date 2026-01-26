@@ -50,6 +50,14 @@ SINGLE NIGHT SUFFERING (run_single_night.bat):
 5. Identifies worst and best periods of the night
 6. Results saved to "output/[filename]_single_night_suffering.html"
 
+LYAPUNOV EXPONENT ANALYSIS (run_lyapunov.bat):
+1. Double-click "run_lyapunov.bat"
+2. Pick a SINGLE .edf file to analyze
+3. WARNING: Takes 5-15 minutes (computationally intensive!)
+4. Measures chaos in your respiratory oscillator
+5. Positive LLE = chaotic, Zero = periodic, Negative = stable
+6. Results saved to "output/[filename]_lyapunov.html"
+
 WHAT YOU'RE SEEING:
 -------------------
 Top plot (Phase Space):
@@ -149,5 +157,32 @@ Use this to:
 
 Example: "My APAP has high suffering scores in the first 2 hours (sleep onset),
 but my ASV keeps it stable throughout."
+
+LYAPUNOV EXPONENT EXPLAINED:
+-----------------------------
+The Largest Lyapunov Exponent (LLE) measures chaos in dynamical systems.
+
+What it measures:
+- How quickly nearby trajectories in phase space diverge
+- Sensitivity to initial conditions
+- The fundamental "chaotic-ness" of your oscillator
+
+Interpretation:
+- Positive LLE = CHAOTIC - Small perturbations grow exponentially, unpredictable
+- Zero LLE = PERIODIC - Limit cycle behavior, predictable oscillation
+- Negative LLE = STABLE - Trajectories converge, well-damped system
+
+How it's calculated:
+- Reconstructs your respiratory attractor using time-delay embedding (Takens' theorem)
+- Tracks how nearby points diverge over time (Rosenstein method)
+- Measures exponential divergence rate
+
+Why it matters:
+- More fundamental than derivative range
+- Captures the NATURE of the oscillator (chaotic vs stable)
+- Directly relates to predictability and control
+- Compare APAP (expect positive LLE) vs ASV (expect lower/negative LLE)
+
+Note: This is the most computationally intensive analysis (takes 5-15 minutes).
 
 Have fun exploring!
