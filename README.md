@@ -159,15 +159,13 @@ This tool was built by someone self-managing their ASV after sleep medicine prov
 
 Key insight from an audio engineer partner: **Unused headroom in your pressure range affects the transfer function.** Tightening PS range to actually-used values (1-7.4 instead of having unused upper range) lets the ASV's control algorithm respond more precisely to your actual breathing dynamics.
 
-### Philips DreamStation 2 Decryption
+### Philips DreamStation 2 Compatibility
 
-Philips encrypts DreamStation 2 data with AES-256-GCM to lock users out of their own data. OscilloBreath includes a Python port of [OSCAR](https://www.sleepfiles.com/OSCAR/)'s decryption implementation, which reverse-engineered the encryption in 2022.
+DreamStation 2 uses encrypted data files. OscilloBreath includes a Python implementation of the file format parser originally developed by the [OSCAR](https://www.sleepfiles.com/OSCAR/) project, which added DreamStation 2 support in 2022.
 
-**The encryption key is literally:** `"Patient access to their own data"`
+This allows users to access their own therapy data for personal analysis, consistent with the principle that patients should have access to their own health information.
 
-The OSCAR developers made a statement with that. We stand with them - your health data belongs to YOU.
-
-**Technical details:** Multi-stage decryption using AES-256-ECB, PBKDF2-SHA256 (10,000 iterations), and AES-256-GCM. Implementation based on OSCAR's `prs1_loader.cpp`.
+**Technical details:** File format uses AES-256-GCM encryption with PBKDF2-SHA256 key derivation. Implementation based on OSCAR's `prs1_loader.cpp`.
 
 ## File Structure
 
