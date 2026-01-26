@@ -105,11 +105,15 @@ It's not about the size of the swings, it's about how aggressively you transitio
 
 The **Largest Lyapunov Exponent (LLE)** measures the fundamental nature of your oscillator:
 
-- **Positive LLE**: Chaotic dynamics - nearby trajectories diverge exponentially. Your breathing is unpredictable and sensitive to perturbations.
-- **Zero LLE**: Periodic/neutral - stable limit cycle behavior.
-- **Negative LLE**: Convergent/damped - trajectories converge, stable predictable system.
+- **Positive LLE**: Responsive/adaptive dynamics - system can respond to changing demands (sleep stages, position, CO2 levels). Indicates flexibility and adaptability.
+- **Near-Zero LLE**: Rigid limit cycle - locked into inflexible periodic pattern. Cannot adapt to changing conditions.
+- **Negative LLE**: Over-damped - trajectories converge too aggressively, sluggish response.
 
-This is more fundamental than derivative range because it characterizes the *type* of dynamics (chaotic vs stable), not just the violence. A well-tuned ASV should transform a positive-LLE chaotic oscillator into a near-zero or negative-LLE stable one.
+**Key insight**: LLE and derivative range are *orthogonal* metrics measuring different aspects of breathing quality:
+- **LLE** = Adaptability/responsiveness of the oscillator
+- **Derivative Range** = Violence/smoothness of transitions
+
+**The goal is positive LLE with low derivative range** - a responsive oscillator that adapts smoothly. Well-tuned ASV shows positive LLE (adaptive) with low derivative violence (smooth). Poorly tuned shows near-zero LLE (rigid) with high derivative violence (jerky).
 
 **Technical details**: Uses time-delay embedding (Takens' theorem) to reconstruct the attractor from 1D flow data, then applies Rosenstein's algorithm to measure trajectory divergence rates.
 
@@ -118,16 +122,6 @@ This is more fundamental than derivative range because it characterizes the *typ
 This tool was built by someone self-managing their ASV after sleep medicine proved useless for UARS and high loop gain ("it's just TeCsA" 🙄).
 
 Key insight from an audio engineer partner: **Unused headroom in your pressure range affects the transfer function.** Tightening PS range to actually-used values (1-7.4 instead of having unused upper range) lets the ASV's control algorithm respond more precisely to your actual breathing dynamics.
-
-## Example Results
-
-### Longitudinal View
-Watch the February 2025 cliff when ASV came online - derivative violence drops in half. Then COVID hits in May (chaos spike), followed by progressive optimization through the year.
-
-### APAP vs Well-Tuned ASV
-- APAP: Wide, scattered phase space attractor, derivative range ~25-35 L/s²
-- ASV: Tight elliptical attractor, derivative range ~10-15 L/s²
-- Single-night comparison: APAP shows constant violence (mean ~10 L/s²), ASV shows low baseline with brief spikes (mean ~5 L/s²)
 
 ## File Structure
 
