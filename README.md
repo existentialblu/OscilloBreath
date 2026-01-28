@@ -67,6 +67,30 @@ Traditional metrics count apneas and hypopneas. We measure how *violently* your 
 - Shows your improvement percentage
 - ⚠️ **ResMed EDF only** (Philips support coming soon)
 
+### Synthetic Data Generator (Web App):
+
+#### 7. Synthetic Data Generator (`synthetic_generator.html`) 🧸 **TOY MODEL**
+- **⚠️ Educational toy model - not physiologically accurate, useful for demonstration and testing**
+- **Interactive coupled oscillator simulator** for generating synthetic respiratory data
+- **Visual 3-segment pendulum** with color-cycling trace (full spectrum every 60 seconds)
+- Shows chemical drive, mechanical response, and airway dynamics as coupled segments
+- Adjust PALM parameters (Loop gain, Arousal threshold, Pharyngeal collapsibility, Muscle compensation)
+- Simulate different sleep stages (N3, REM, N2, wake) with ultradian rhythm cycling
+- Add perturbations: flow limitation events, APAP diagnostic puffs (5 Hz FOT at 3/hour)
+- Real-time visualization with speed control (0.05x to 0.20x) - slow down to watch individual breaths
+- Smart view controls: auto-scrolls after 60s to follow live data, X-axis zoom only (Y-axis locked)
+- Batch generation (4 hours of data)
+- Loop gain evolution (simulate destabilization over time)
+- Export as CSV at 25 Hz, then convert to EDF format using `csv_to_edf.py`
+- Pure HTML/JavaScript - no installation needed, just open in browser
+- 🧪 **Useful for testing analysis tools and exploring concepts, not for clinical accuracy**
+
+#### 8. CSV to EDF Converter (`run_csv_to_edf.bat`)
+- Convert synthetic CSV data to ResMed-compatible EDF format
+- Automatically resamples to 25 Hz to match ResMed devices
+- Creates proper EDF headers with signal metadata
+- Output works with all existing OscilloBreath analysis tools
+
 ## Installation
 
 ### Requirements
@@ -117,6 +141,22 @@ Dependencies:
 1. **First time:** Run one of the `.bat` files to analyze your data
 2. **Output:** All results saved to `output/` folder as interactive HTML
 3. **Screenshots:** Click the camera icon in the plot toolbar to save PNG
+
+### Synthetic Data Generator (Toy Model):
+1. **Open:** Double-click `synthetic_generator.html` to open in your web browser
+2. **Adjust sliders:** Set PALM parameters, noise level, sleep stage, perturbations
+3. **Real-time mode:** Click "Start Real-Time Visualization" to watch the oscillator evolve (very slow for observation)
+4. **Auto-scroll:** After 60 seconds, view automatically scrolls to show last 60s of data
+5. **Manual exploration:** Scroll wheel zooms X-axis, drag to pan, "Follow Live Data" button returns to auto-scroll
+6. **Batch mode:** Click "Generate 4-Hour Batch" to create a full night of synthetic data
+7. **Export CSV:** Click "Export as CSV" to download raw data
+8. **Convert to EDF:** Run `run_csv_to_edf.bat` and select the CSV file to create ResMed-compatible EDF (25 Hz)
+9. **Analyze:** Use any OscilloBreath analysis tool on the generated EDF file
+10. **⚠️ Remember:** This is a toy model for demonstration - not physiologically accurate, but useful for:
+   - Testing analysis tools on known synthetic patterns
+   - Exploring coupled oscillator concepts visually
+   - Demonstrating how loop gain affects breathing stability
+   - Educational purposes and concept exploration
 
 ## The Science (Sort Of)
 
@@ -180,6 +220,8 @@ OscilloBreath/
 ├── lyapunov_analyzer_fast.py      # Optimized version with downsampling
 ├── philips_loader.py              # Philips DreamStation parser + decryption
 ├── data_loader.py                 # Universal loader (auto-detects format)
+├── synthetic_generator.html       # Interactive web app for synthetic data
+├── csv_to_edf.py                  # Convert synthetic CSV to ResMed EDF format
 ├── run.bat                         # Launch single night analysis
 ├── run_longitudinal.bat           # Launch longitudinal analysis
 ├── run_suffering_tracker.bat      # Launch suffering tracker
@@ -187,6 +229,7 @@ OscilloBreath/
 ├── run_phase_transitions.bat      # Launch transition analyzer
 ├── run_lyapunov.bat               # Launch Lyapunov analysis
 ├── run_lyapunov_fast.bat          # Launch fast Lyapunov analysis
+├── run_csv_to_edf.bat             # Launch CSV to EDF converter
 ├── requirements.txt               # Python dependencies
 ├── README.md                      # This file
 ├── README.txt                     # Plain text instructions

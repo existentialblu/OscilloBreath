@@ -1,0 +1,949 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OscilloBreath Synthetic Data Generator</title>
+    <script src="https://cdn.plot.ly/plotly-2.26.0.min.js"></script>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #1e1e1e;
+            color: #d4d4d4;
+        }
+        .container {
+            max-width: 1800px;
+            margin: 0 auto;
+        }
+        h1 {
+            color: #569cd6;
+            border-bottom: 2px solid #569cd6;
+            padding-bottom: 10px;
+        }
+        .control-panel {
+            background-color: #252526;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        .control-group {
+            margin-bottom: 20px;
+        }
+        .control-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+        .slider-container {
+            background-color: #2d2d30;
+            padding: 15px;
+            border-radius: 5px;
+        }
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #9cdcfe;
+        }
+        .value-display {
+            color: #ce9178;
+            font-weight: bold;
+            float: right;
+        }
+        input[type="range"] {
+            width: 100%;
+            margin-top: 5px;
+        }
+        select, button {
+            padding: 10px;
+            border-radius: 5px;
+            border: 1px solid #3c3c3c;
+            background-color: #3c3c3c;
+            color: #d4d4d4;
+            font-size: 14px;
+        }
+        button {
+            cursor: pointer;
+            background-color: #0e639c;
+            border: none;
+            font-weight: bold;
+            transition: background-color 0.3s;
+        }
+        button:hover {
+            background-color: #1177bb;
+        }
+        button:disabled {
+            background-color: #3c3c3c;
+            cursor: not-allowed;
+        }
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+        .plot-container {
+            background-color: #252526;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            min-height: 500px;
+        }
+        #timeseries-plot {
+            width: 100%;
+            height: 500px;
+        }
+        .pendulum-container {
+            background-color: #252526;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        #pendulum-canvas {
+            background-color: #1e1e1e;
+            border-radius: 5px;
+            display: block;
+            margin: 0 auto;
+        }
+        .info-box {
+            background-color: #1e3a5f;
+            padding: 15px;
+            border-radius: 5px;
+            border-left: 4px solid #569cd6;
+            margin-bottom: 20px;
+        }
+        .warning-box {
+            background-color: #5f3a1e;
+            padding: 15px;
+            border-radius: 5px;
+            border-left: 4px solid #ce9178;
+            margin-bottom: 20px;
+        }
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+        .stat-box {
+            background-color: #2d2d30;
+            padding: 15px;
+            border-radius: 5px;
+            text-align: center;
+        }
+        .stat-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #4ec9b0;
+        }
+        .stat-label {
+            font-size: 12px;
+            color: #858585;
+            margin-top: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🌊 OscilloBreath Synthetic Data Generator</h1>
+
+        <div class="warning-box">
+            <strong>🧸 TOY MODEL - NOT PHYSIOLOGICALLY ACCURATE</strong><br>
+            This is an educational demonstration tool for exploring coupled oscillator concepts. The model is simplified and not suitable for clinical or research accuracy.
+            Useful for testing analysis tools and demonstrating concepts, not for making clinical inferences.
+        </div>
+
+        <div class="info-box">
+            <strong>Coupled Oscillator Respiratory Simulator</strong><br>
+            Generate synthetic PAP flow data simulating different PALM phenotypes (Pharyngeal collapsibility, Arousal threshold, Loop gain, Muscle compensation).
+            Model breathing as a coupled oscillator system with chemical drive, mechanical response, and airway dynamics.
+        </div>
+
+        <div class="info-box">
+            <strong>💾 EDF Conversion:</strong> After exporting CSV, use <code>run_csv_to_edf.bat</code> to convert to EDF format (25 Hz) for analysis with all OscilloBreath tools.<br>
+            <strong>🔍 View Controls:</strong>
+            • First 60s: Shows from start to current time
+            • After 60s: Auto-scrolls to show last 60 seconds
+            • Scroll wheel to zoom X-axis only (Y-axis locked)
+            • Drag to pan through history
+            • Click "Follow Live Data" to resume auto-scroll
+            • Double-click plot to reset to full view
+        </div>
+
+        <div class="control-panel">
+            <h2>PALM Parameters</h2>
+            <div class="control-row">
+                <div class="slider-container">
+                    <label>Loop Gain <span class="value-display" id="lg-value">0.7</span></label>
+                    <input type="range" id="loop-gain" min="0.1" max="2.0" step="0.05" value="0.7">
+                    <small>Chemical feedback amplification (0.1=stable, 2.0=chaotic)</small>
+                </div>
+
+                <div class="slider-container">
+                    <label>Arousal Threshold <span class="value-display" id="arth-value">0.5</span></label>
+                    <input type="range" id="arousal-threshold" min="0.1" max="1.0" step="0.05" value="0.5">
+                    <small>Drive level triggering wake response (low=sensitive)</small>
+                </div>
+
+                <div class="slider-container">
+                    <label>Pharyngeal Collapsibility (Pcrit) <span class="value-display" id="pcrit-value">0.4</span></label>
+                    <input type="range" id="pcrit" min="0.0" max="1.0" step="0.05" value="0.4">
+                    <small>Airway collapse tendency (0=stable, 1=collapses easily)</small>
+                </div>
+
+                <div class="slider-container">
+                    <label>Muscle Compensation <span class="value-display" id="mc-value">0.6</span></label>
+                    <input type="range" id="muscle-comp" min="0.0" max="1.0" step="0.05" value="0.6">
+                    <small>Neuromuscular airway protection (0=weak, 1=strong)</small>
+                </div>
+            </div>
+
+            <h2>Simulation Parameters</h2>
+            <div class="control-row">
+                <div class="slider-container">
+                    <label>Noise Level <span class="value-display" id="noise-value">0.15</span></label>
+                    <input type="range" id="noise" min="0.0" max="0.5" step="0.05" value="0.15">
+                    <small>Physiological variability (0=none, 0.5=high)</small>
+                </div>
+
+                <div class="slider-container">
+                    <label>Loop Gain Evolution Rate <span class="value-display" id="lg-evo-value">0.0</span></label>
+                    <input type="range" id="lg-evolution" min="0.0" max="0.2" step="0.01" value="0.0">
+                    <small>LG increase per hour (0=stable, 0.2=rapid destabilization)</small>
+                </div>
+
+                <div class="slider-container">
+                    <label>Sleep Stage</label>
+                    <select id="sleep-stage">
+                        <option value="n3">N3 (Deep Sleep)</option>
+                        <option value="n2">N2 (Light Sleep)</option>
+                        <option value="rem">REM (Dream Sleep)</option>
+                        <option value="wake">Wake</option>
+                        <option value="ultradian">Ultradian Cycle (Auto)</option>
+                    </select>
+                </div>
+
+                <div class="slider-container">
+                    <label>Visualization Speed <span class="value-display" id="speed-value">0.10x</span></label>
+                    <input type="range" id="viz-speed" min="0.05" max="0.20" step="0.01" value="0.10">
+                    <small>Real-time playback rate (0.05x=slowest, 0.20x=fastest)</small>
+                </div>
+            </div>
+
+            <h2>Perturbations</h2>
+            <div class="control-row">
+                <div class="slider-container">
+                    <label>
+                        <input type="checkbox" id="flow-limitation"> Enable Flow Limitation
+                    </label>
+                    <small>Stochastic upper airway narrowing events</small>
+                </div>
+
+                <div class="slider-container">
+                    <label>
+                        <input type="checkbox" id="apap-puffs"> Enable APAP Diagnostic Puffs
+                    </label>
+                    <small>5 Hz FOT at 3-5 puffs/hour (realistic APAP behavior)</small>
+                </div>
+            </div>
+
+            <div class="button-group">
+                <button id="start-realtime">▶ Start Real-Time Visualization</button>
+                <button id="stop-realtime" disabled>⏸ Stop</button>
+                <button id="follow-mode">👁 Follow Live Data</button>
+                <button id="generate-batch">⚡ Generate 4-Hour Batch</button>
+                <button id="export-csv">💾 Export as CSV</button>
+                <button id="reset">🔄 Reset</button>
+            </div>
+        </div>
+
+        <div class="stats">
+            <div class="stat-box">
+                <div class="stat-value" id="current-lle">--</div>
+                <div class="stat-label">Estimated LLE (bits/s)</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-value" id="deriv-range">--</div>
+                <div class="stat-label">Derivative Range (L/s²)</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-value" id="flow-std">--</div>
+                <div class="stat-label">Flow Std Dev (L/s)</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-value" id="duration">0.0</div>
+                <div class="stat-label">Duration (minutes)</div>
+            </div>
+        </div>
+
+        <div class="pendulum-container">
+            <h3>Coupled Oscillator System (3-Segment Pendulum)</h3>
+            <canvas id="pendulum-canvas" width="800" height="500"></canvas>
+            <div style="margin-top: 10px; font-size: 12px; color: #858585;">
+                <span style="color: #4ec9b0;">●</span> Chemical Drive &nbsp;|&nbsp;
+                <span style="color: #569cd6;">●</span> Mechanical Response &nbsp;|&nbsp;
+                <span style="color: #ce9178;">●</span> Airway Dynamics (color cycles every 60 seconds)
+            </div>
+        </div>
+
+        <div class="plot-container">
+            <div id="timeseries-plot"></div>
+        </div>
+    </div>
+
+    <script>
+        // State
+        let isRunning = false;
+        let animationFrame = null;
+        let flowData = [];
+        let timeData = [];
+        const sampleRate = 25;  // Fixed at 25 Hz to match ResMed
+        let currentTime = 0;
+        let vizSpeed = 0.10;  // Visualization speed multiplier
+        let autoScroll = true;  // Auto-scroll with new data
+        let userZoomedOrPanned = false;  // Track if user manually interacted
+
+        // Oscillator state (start with small perturbation to kickstart oscillation)
+        let x1 = 0.1, y1 = 0;  // Chemical drive oscillator
+        let x2 = 0.2, y2 = 0;  // Mechanical response oscillator
+        let x3 = 0.1, y3 = 0;  // Airway dynamics oscillator
+        let chemicalDrive = 0;
+
+        // Pendulum trace (only for airway dynamics - final segment)
+        let trace3 = [];  // Airway dynamics positions with timestamps
+        const fadeFrames = 150;  // Frames to fade from bright to glow
+        const glowAlpha = 0.15;  // Persistent glow level
+
+        // Color cycling: full spectrum every 60 seconds
+        function getTraceColor(timeSeconds) {
+            // Cycle hue from 0-360 degrees every 60 seconds
+            const hue = (timeSeconds % 60) / 60 * 360;
+            // Convert HSL to RGB (saturation 70%, lightness 60% for nice colors)
+            return hslToRgb(hue, 0.7, 0.6);
+        }
+
+        // HSL to RGB conversion
+        function hslToRgb(h, s, l) {
+            h = h / 360;
+            const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+            const p = 2 * l - q;
+            const r = Math.round(hueToRgb(p, q, h + 1/3) * 255);
+            const g = Math.round(hueToRgb(p, q, h) * 255);
+            const b = Math.round(hueToRgb(p, q, h - 1/3) * 255);
+            return {r, g, b};
+        }
+
+        function hueToRgb(p, q, t) {
+            if (t < 0) t += 1;
+            if (t > 1) t -= 1;
+            if (t < 1/6) return p + (q - p) * 6 * t;
+            if (t < 1/2) return q;
+            if (t < 2/3) return p + (q - p) * (2/3 - t) * 6;
+            return p;
+        }
+
+        // Parameters
+        let params = {
+            loopGain: 0.7,
+            arousalThreshold: 0.5,
+            pcrit: 0.4,
+            muscleComp: 0.6,
+            noise: 0.15,
+            lgEvolution: 0.0,
+            sleepStage: 'n2',
+            flowLimitation: false,
+            apapPuffs: false
+        };
+
+        const puffFrequency = 3;  // Fixed at 3-5 puffs/hour (realistic)
+
+        // Sleep stage parameters (affect oscillator frequencies and damping)
+        const sleepStageParams = {
+            n3: { chemFreq: 0.1, mechFreq: 0.3, damping: 0.2, lgMod: 0.8 },
+            n2: { chemFreq: 0.15, mechFreq: 0.25, damping: 0.15, lgMod: 1.0 },
+            rem: { chemFreq: 0.2, mechFreq: 0.3, damping: 0.1, lgMod: 1.3 },
+            wake: { chemFreq: 0.25, mechFreq: 0.35, damping: 0.3, lgMod: 0.6 }
+        };
+
+        let lastApapPuffTime = -1000;
+
+        // Update value displays
+        function updateDisplays() {
+            document.getElementById('lg-value').textContent = params.loopGain.toFixed(2);
+            document.getElementById('arth-value').textContent = params.arousalThreshold.toFixed(2);
+            document.getElementById('pcrit-value').textContent = params.pcrit.toFixed(2);
+            document.getElementById('mc-value').textContent = params.muscleComp.toFixed(2);
+            document.getElementById('noise-value').textContent = params.noise.toFixed(2);
+            document.getElementById('lg-evo-value').textContent = params.lgEvolution.toFixed(2);
+            document.getElementById('speed-value').textContent = vizSpeed.toFixed(2) + 'x';
+        }
+
+        // Add event listeners
+        document.getElementById('loop-gain').addEventListener('input', e => {
+            params.loopGain = parseFloat(e.target.value);
+            updateDisplays();
+        });
+
+        document.getElementById('arousal-threshold').addEventListener('input', e => {
+            params.arousalThreshold = parseFloat(e.target.value);
+            updateDisplays();
+        });
+
+        document.getElementById('pcrit').addEventListener('input', e => {
+            params.pcrit = parseFloat(e.target.value);
+            updateDisplays();
+        });
+
+        document.getElementById('muscle-comp').addEventListener('input', e => {
+            params.muscleComp = parseFloat(e.target.value);
+            updateDisplays();
+        });
+
+        document.getElementById('noise').addEventListener('input', e => {
+            params.noise = parseFloat(e.target.value);
+            updateDisplays();
+        });
+
+        document.getElementById('lg-evolution').addEventListener('input', e => {
+            params.lgEvolution = parseFloat(e.target.value);
+            updateDisplays();
+        });
+
+        document.getElementById('viz-speed').addEventListener('input', e => {
+            vizSpeed = parseFloat(e.target.value);
+            document.getElementById('speed-value').textContent = vizSpeed.toFixed(2) + 'x';
+        });
+
+        document.getElementById('sleep-stage').addEventListener('change', e => {
+            params.sleepStage = e.target.value;
+        });
+
+        document.getElementById('flow-limitation').addEventListener('change', e => {
+            params.flowLimitation = e.target.checked;
+        });
+
+        document.getElementById('apap-puffs').addEventListener('change', e => {
+            params.apapPuffs = e.target.checked;
+        });
+
+        // Get current sleep stage (handle ultradian cycling)
+        function getCurrentSleepStage() {
+            if (params.sleepStage !== 'ultradian') {
+                return params.sleepStage;
+            }
+
+            // Ultradian cycle: 90-minute cycles
+            const cycleTime = (currentTime / 60) % 90;  // minutes in cycle
+
+            if (cycleTime < 20) return 'n2';
+            if (cycleTime < 40) return 'n3';
+            if (cycleTime < 60) return 'n2';
+            if (cycleTime < 80) return 'rem';
+            return 'n2';
+        }
+
+        // Coupled oscillator step
+        function stepOscillator(dt) {
+            const stage = getCurrentSleepStage();
+            const stageParams = sleepStageParams[stage];
+
+            // Evolve loop gain over time
+            const currentLG = params.loopGain + params.lgEvolution * (currentTime / 3600);
+            const effectiveLG = currentLG * stageParams.lgMod;
+
+            // Frequencies
+            const omega1 = stageParams.chemFreq * 2 * Math.PI;  // Chemical drive
+            const omega2 = stageParams.mechFreq * 2 * Math.PI;  // Mechanical response
+            const omega3 = 0.4 * 2 * Math.PI;  // Airway dynamics
+
+            // Damping
+            const damp = stageParams.damping;
+
+            // Noise
+            const noise = params.noise * (Math.random() - 0.5) * 2;
+
+            // Chemical drive (slow oscillator with loop gain feedback)
+            const dx1 = -omega1 * y1 + effectiveLG * (x2 - x1) + noise * 0.5;
+            const dy1 = omega1 * x1 - damp * y1;
+
+            // Mechanical response (fast oscillator)
+            const dx2 = -omega2 * y2 + effectiveLG * (x1 - x2) + noise;
+            const dy2 = omega2 * x2 - damp * 0.5 * y2;
+
+            // Airway dynamics (affected by Pcrit and muscle compensation)
+            const airwayStiffness = (1 - params.pcrit) * params.muscleComp;
+            const dx3 = -omega3 * y3 + 0.3 * (x2 - x3) * airwayStiffness + noise * 0.3;
+            const dy3 = omega3 * x3 - damp * 0.8 * y3;
+
+            // Integrate
+            x1 += dx1 * dt;
+            y1 += dy1 * dt;
+            x2 += dx2 * dt;
+            y2 += dy2 * dt;
+            x3 += dx3 * dt;
+            y3 += dy3 * dt;
+
+            // Update chemical drive
+            chemicalDrive += (x1 * 0.5 + x2 * 0.5) * dt;
+
+            // Arousal response (reset when drive exceeds threshold)
+            if (Math.abs(chemicalDrive) > params.arousalThreshold) {
+                chemicalDrive *= 0.1;  // Partial reset
+                x1 *= 0.5;
+                x2 *= 0.5;
+            }
+
+            // Calculate flow (combination of mechanical and airway oscillators)
+            let flow = x2 * 0.6 + x3 * 0.4;
+
+            // Apply flow limitation (stochastic)
+            if (params.flowLimitation && Math.random() < params.pcrit * 0.01) {
+                flow *= (1 - params.pcrit * 0.5);
+            }
+
+            // Apply APAP diagnostic puffs (realistic: 3-5/hour at 5 Hz)
+            if (params.apapPuffs) {
+                const secondsBetweenPuffs = 3600 / puffFrequency;
+
+                // Check if it's time for a puff (and flow is near zero)
+                if (currentTime - lastApapPuffTime > secondsBetweenPuffs && Math.abs(flow) < 0.1) {
+                    // 5 Hz FOT oscillation for ~1 second
+                    const puffTime = currentTime - Math.floor(currentTime);
+                    if (puffTime < 1.0) {
+                        flow += 0.3 * Math.sin(2 * Math.PI * 5 * puffTime);
+                        lastApapPuffTime = Math.floor(currentTime);
+                    }
+                }
+            }
+
+            return flow;
+        }
+
+        // Generate single time step
+        function generateStep() {
+            const dt = 1.0 / sampleRate;
+            const flow = stepOscillator(dt);
+
+            flowData.push(flow);
+            timeData.push(currentTime);
+            currentTime += dt;
+
+            // Keep ALL data for full zoomable history
+            // (No trimming - user can zoom across entire simulation)
+
+            return flow;
+        }
+
+        // Draw pendulum system
+        function drawPendulum() {
+            const canvas = document.getElementById('pendulum-canvas');
+            const ctx = canvas.getContext('2d');
+            const width = canvas.width;
+            const height = canvas.height;
+
+            // Clear
+            ctx.fillStyle = '#1e1e1e';
+            ctx.fillRect(0, 0, width, height);
+
+            // Pivot point (centered both horizontally and vertically)
+            const pivotX = width / 2;
+            const pivotY = height / 2;  // Center vertically
+
+            // Segment lengths (scaled for display)
+            const len1 = 55;  // Chemical drive
+            const len2 = 55;  // Mechanical response
+            const len3 = 55;  // Airway dynamics
+            // Total length = 165, centered in 500px height canvas with good margins
+
+            // Convert oscillator state to angles (scale up for visibility)
+            const angleScale = 3.0;
+            const angle1 = Math.atan2(y1, x1 + 0.01) * angleScale;
+            const angle2 = Math.atan2(y2, x2 + 0.01) * angleScale;
+            const angle3 = Math.atan2(y3, x3 + 0.01) * angleScale;
+
+            // Calculate positions of each segment
+            const x1_pos = pivotX + len1 * Math.sin(angle1);
+            const y1_pos = pivotY + len1 * Math.cos(angle1);
+
+            const x2_pos = x1_pos + len2 * Math.sin(angle2);
+            const y2_pos = y1_pos + len2 * Math.cos(angle2);
+
+            const x3_pos = x2_pos + len3 * Math.sin(angle3);
+            const y3_pos = y2_pos + len3 * Math.cos(angle3);
+
+            // Store position in trace array with timestamp (only airway dynamics)
+            trace3.push({x: x3_pos, y: y3_pos, time: currentTime});
+
+            // Draw trace with fade-to-glow effect and color cycling
+            if (trace3.length >= 2) {
+                ctx.lineWidth = 2;
+
+                for (let i = 1; i < trace3.length; i++) {
+                    let alpha;
+
+                    if (i < fadeFrames) {
+                        // Fade from 0 to glowAlpha over first fadeFrames
+                        alpha = (i / fadeFrames) * glowAlpha;
+                    } else if (trace3.length - i <= fadeFrames) {
+                        // Fade from glowAlpha to full brightness over last fadeFrames (recent trail)
+                        const distFromEnd = trace3.length - i;
+                        alpha = glowAlpha + ((fadeFrames - distFromEnd) / fadeFrames) * (0.8 - glowAlpha);
+                    } else {
+                        // Middle section: persistent glow
+                        alpha = glowAlpha;
+                    }
+
+                    // Get color based on the timestamp when this segment was created
+                    const segmentTime = trace3[i].time;
+                    const color = getTraceColor(segmentTime);
+
+                    ctx.strokeStyle = `rgba(${color.r}, ${color.g}, ${color.b}, ${alpha})`;
+                    ctx.beginPath();
+                    ctx.moveTo(trace3[i-1].x, trace3[i-1].y);
+                    ctx.lineTo(trace3[i].x, trace3[i].y);
+                    ctx.stroke();
+                }
+            }
+
+            // Draw pivot point
+            ctx.fillStyle = '#858585';
+            ctx.beginPath();
+            ctx.arc(pivotX, pivotY, 5, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Draw segments (solid lines)
+            // Segment 1: Chemical drive (cyan)
+            ctx.strokeStyle = '#4ec9b0';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.moveTo(pivotX, pivotY);
+            ctx.lineTo(x1_pos, y1_pos);
+            ctx.stroke();
+
+            ctx.fillStyle = '#4ec9b0';
+            ctx.beginPath();
+            ctx.arc(x1_pos, y1_pos, 7, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Segment 2: Mechanical response (blue)
+            ctx.strokeStyle = '#569cd6';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.moveTo(x1_pos, y1_pos);
+            ctx.lineTo(x2_pos, y2_pos);
+            ctx.stroke();
+
+            ctx.fillStyle = '#569cd6';
+            ctx.beginPath();
+            ctx.arc(x2_pos, y2_pos, 7, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Segment 3: Airway dynamics (color-cycling)
+            const currentColor = getTraceColor(currentTime);
+            ctx.strokeStyle = `rgb(${currentColor.r}, ${currentColor.g}, ${currentColor.b})`;
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.moveTo(x2_pos, y2_pos);
+            ctx.lineTo(x3_pos, y3_pos);
+            ctx.stroke();
+
+            ctx.fillStyle = `rgb(${currentColor.r}, ${currentColor.g}, ${currentColor.b})`;
+            ctx.beginPath();
+            ctx.arc(x3_pos, y3_pos, 9, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Labels
+            ctx.font = '11px Segoe UI';
+            ctx.fillStyle = '#d4d4d4';
+            ctx.fillText('Chemical', x1_pos - 25, y1_pos - 15);
+            ctx.fillText('Mechanical', x2_pos - 30, y2_pos - 15);
+
+            // Label for airway in current color
+            ctx.fillStyle = `rgb(${currentColor.r}, ${currentColor.g}, ${currentColor.b})`;
+            ctx.fillText('Airway', x3_pos - 20, y3_pos + 25);
+        }
+
+        // Calculate statistics
+        function calculateStats() {
+            if (flowData.length < 100) return;
+
+            // Derivative
+            const derivative = [];
+            for (let i = 1; i < flowData.length; i++) {
+                derivative.push((flowData[i] - flowData[i-1]) * sampleRate);
+            }
+
+            // Stats
+            const derivRange = Math.max(...derivative) - Math.min(...derivative);
+            const flowStd = Math.sqrt(flowData.reduce((sum, x) => sum + x*x, 0) / flowData.length);
+
+            // Rough LLE estimate (positive if high loop gain, negative if damped)
+            const lgContribution = (params.loopGain - 0.7) * 0.02;
+            const stageContrib = params.sleepStage === 'rem' ? 0.005 : (params.sleepStage === 'n3' ? -0.005 : 0);
+            const estimatedLLE = lgContribution + stageContrib;
+
+            document.getElementById('deriv-range').textContent = derivRange.toFixed(2);
+            document.getElementById('flow-std').textContent = flowStd.toFixed(3);
+            document.getElementById('current-lle').textContent = estimatedLLE.toFixed(4);
+            document.getElementById('duration').textContent = (currentTime / 60).toFixed(1);
+        }
+
+        // Update plots
+        function updatePlots() {
+            // Draw pendulum (always draw even with no data)
+            drawPendulum();
+
+            if (flowData.length < 2) return;
+
+            // Calculate y-axis range from actual data with sensible defaults
+            const minFlow = Math.min(...flowData);
+            const maxFlow = Math.max(...flowData);
+            const absMax = Math.max(Math.abs(minFlow), Math.abs(maxFlow), 0.5);  // At least 0.5
+
+            // Time series (show only flow in seconds for better breath visibility)
+            const flowTrace = {
+                x: Array.from(timeData),
+                y: Array.from(flowData),
+                mode: 'lines',
+                type: 'scatter',
+                line: { color: '#569cd6', width: 3 },
+                name: 'Flow Rate'
+            };
+
+            // Determine x-axis range
+            let xRange;
+            if (autoScroll && !userZoomedOrPanned && currentTime > 60) {
+                // Auto-scroll: show last 60 seconds
+                xRange = [currentTime - 60, currentTime];
+            } else if (currentTime <= 60) {
+                // First minute: show from 0 to current
+                xRange = [0, Math.max(currentTime, 10)];
+            } else {
+                // User has interacted or auto-scroll disabled: show full range
+                xRange = null;  // Let Plotly decide based on data
+            }
+
+            const timeLayout = {
+                title: 'Flow Rate Over Time (Scroll Wheel: Zoom X-axis | Drag: Pan | Double-click: Reset)',
+                xaxis: {
+                    title: 'Time (seconds)',
+                    gridcolor: '#3c3c3c',
+                    rangeslider: { visible: false },
+                    range: xRange
+                },
+                yaxis: {
+                    title: 'Flow (L/s)',
+                    range: [-absMax * 1.2, absMax * 1.2],
+                    gridcolor: '#3c3c3c',
+                    zeroline: true,
+                    zerolinecolor: '#858585',
+                    zerolinewidth: 2,
+                    fixedrange: true  // Lock y-axis, no zooming
+                },
+                paper_bgcolor: '#252526',
+                plot_bgcolor: '#1e1e1e',
+                font: { color: '#d4d4d4' },
+                height: 500,
+                showlegend: false,
+                margin: { l: 70, r: 30, t: 50, b: 60 },
+                dragmode: 'pan'  // Default to pan mode
+            };
+
+            const config = {
+                responsive: true,
+                displayModeBar: true,
+                modeBarButtonsToAdd: ['drawline', 'drawopenpath', 'eraseshape'],
+                scrollZoom: true  // Enable mouse wheel zoom
+            };
+
+            Plotly.react('timeseries-plot', [flowTrace], timeLayout, config).then(() => {
+                // Detect user zoom/pan interactions
+                const plotDiv = document.getElementById('timeseries-plot');
+
+                // Remove old listener if exists
+                plotDiv.removeAllListeners && plotDiv.removeAllListeners('plotly_relayout');
+
+                // Add new listener
+                plotDiv.on('plotly_relayout', (eventData) => {
+                    // Check if user manually changed x-axis range
+                    if (eventData['xaxis.range[0]'] !== undefined || eventData['xaxis.range'] !== undefined) {
+                        userZoomedOrPanned = true;
+                        console.log('User interacted - auto-scroll disabled');
+                    }
+
+                    // Double-click resets and re-enables auto-scroll
+                    if (eventData['xaxis.autorange']) {
+                        userZoomedOrPanned = false;
+                        autoScroll = true;
+                        console.log('View reset - auto-scroll re-enabled');
+                    }
+                });
+            });
+        }
+
+        // Real-time animation loop
+        function realtimeLoop() {
+            if (!isRunning) return;
+
+            // Generate steps based on speed multiplier
+            // At 0.05x: 0.5 steps per frame = very slow
+            // At 0.10x: 1 step per frame = slow
+            // At 0.20x: 2 steps per frame = faster
+            const stepsPerFrame = Math.max(1, Math.round(10 * vizSpeed));
+
+            for (let i = 0; i < stepsPerFrame; i++) {
+                generateStep();
+            }
+
+            calculateStats();
+            updatePlots();
+
+            animationFrame = requestAnimationFrame(realtimeLoop);
+        }
+
+        // Start real-time
+        document.getElementById('start-realtime').addEventListener('click', () => {
+            if (isRunning) return;
+
+            isRunning = true;
+            document.getElementById('start-realtime').disabled = true;
+            document.getElementById('stop-realtime').disabled = false;
+
+            realtimeLoop();
+        });
+
+        // Stop real-time
+        document.getElementById('stop-realtime').addEventListener('click', () => {
+            isRunning = false;
+            document.getElementById('start-realtime').disabled = false;
+            document.getElementById('stop-realtime').disabled = true;
+
+            if (animationFrame) {
+                cancelAnimationFrame(animationFrame);
+            }
+        });
+
+        // Follow mode button
+        document.getElementById('follow-mode').addEventListener('click', () => {
+            userZoomedOrPanned = false;
+            autoScroll = true;
+            console.log('Follow mode enabled - will show last 60 seconds');
+        });
+
+        // Generate batch
+        document.getElementById('generate-batch').addEventListener('click', () => {
+            if (isRunning) {
+                alert('Stop real-time simulation first');
+                return;
+            }
+
+            document.getElementById('generate-batch').disabled = true;
+            document.getElementById('generate-batch').textContent = '⏳ Generating...';
+
+            // Reset state with perturbation
+            flowData = [];
+            timeData = [];
+            currentTime = 0;
+            x1 = 0.1; y1 = 0;
+            x2 = 0.2; y2 = 0;
+            x3 = 0.1; y3 = 0;
+            chemicalDrive = 0;
+
+            // Generate 4 hours
+            const targetSamples = sampleRate * 3600 * 4;
+
+            setTimeout(() => {
+                for (let i = 0; i < targetSamples; i++) {
+                    generateStep();
+
+                    // Update progress every 10000 samples
+                    if (i % 10000 === 0) {
+                        const progress = (i / targetSamples * 100).toFixed(0);
+                        document.getElementById('generate-batch').textContent = `⏳ ${progress}%`;
+                    }
+                }
+
+                calculateStats();
+                updatePlots();
+
+                document.getElementById('generate-batch').disabled = false;
+                document.getElementById('generate-batch').textContent = '⚡ Generate 4-Hour Batch';
+
+                alert(`Generated ${flowData.length} samples (${(currentTime / 3600).toFixed(2)} hours)`);
+            }, 100);
+        });
+
+        // Export CSV
+        document.getElementById('export-csv').addEventListener('click', () => {
+            if (flowData.length === 0) {
+                alert('No data to export. Generate some data first.');
+                return;
+            }
+
+            // Create CSV content
+            let csv = 'Time (s),Flow (L/s)\n';
+            for (let i = 0; i < flowData.length; i++) {
+                csv += `${timeData[i].toFixed(4)},${flowData[i].toFixed(6)}\n`;
+            }
+
+            // Download
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+
+            // Generate filename with parameters
+            const timestamp = new Date().toISOString().split('T')[0].replace(/-/g, '');
+            const stage = params.sleepStage === 'ultradian' ? 'ULT' : params.sleepStage.toUpperCase();
+            a.download = `synthetic_LG${params.loopGain.toFixed(2)}_${stage}_${timestamp}.csv`;
+
+            a.click();
+            URL.revokeObjectURL(url);
+        });
+
+        // Reset
+        document.getElementById('reset').addEventListener('click', () => {
+            if (isRunning) {
+                document.getElementById('stop-realtime').click();
+            }
+
+            flowData = [];
+            timeData = [];
+            currentTime = 0;
+            // Reset with small perturbation to kickstart oscillation
+            x1 = 0.1; y1 = 0;
+            x2 = 0.2; y2 = 0;
+            x3 = 0.1; y3 = 0;
+            chemicalDrive = 0;
+            lastApapPuffTime = -1000;
+
+            // Clear pendulum trace
+            trace3 = [];
+
+            // Reset auto-scroll state
+            userZoomedOrPanned = false;
+            autoScroll = true;
+
+            document.getElementById('deriv-range').textContent = '--';
+            document.getElementById('flow-std').textContent = '--';
+            document.getElementById('current-lle').textContent = '--';
+            document.getElementById('duration').textContent = '0.0';
+
+            // Clear pendulum
+            const canvas = document.getElementById('pendulum-canvas');
+            const ctx = canvas.getContext('2d');
+            ctx.fillStyle = '#1e1e1e';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            Plotly.purge('timeseries-plot');
+        });
+
+        // Initialize
+        updateDisplays();
+        drawPendulum();  // Draw initial pendulum state
+    </script>
+</body>
+</html>
