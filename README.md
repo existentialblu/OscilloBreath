@@ -51,16 +51,25 @@ Traditional metrics count apneas and hypopneas. We measure how *violently* your 
 - Optimized version (2-5 minutes per file)
 - ✅ **Works with both ResMed and Philips**
 
+#### 5. Longitudinal Lyapunov Tracker (`run_lyapunov_longitudinal.bat`)
+- Track LLE (chaos vs stability) over months/years
+- One LLE value per night showing oscillator behavior
+- Color-coded: Red = chaotic, Yellow = periodic, Green = stable
+- Smoothed trend line to see long-term patterns
+- Summary statistics: mean, median, categorization of nights
+- See when therapy changes affected stability
+- ⚠️ **ResMed EDF only** (uses filename timestamps)
+
 ### ResMed-Only Tools (Not Yet Updated):
 
-#### 5. Longitudinal Tracker (`run_longitudinal.bat`)
+#### 6. Longitudinal Tracker (`run_longitudinal.bat`)
 - Track oscillator metrics over months/years
 - See the exact moment ASV stabilized your breathing
 - Multiple metrics: flow variability, derivative violence, attractor tightness, etc.
 - Smoothed trends to cut through daily noise
 - ⚠️ **ResMed EDF only** (Philips support coming soon)
 
-#### 6. Suffering Tracker (`run_suffering_tracker.bat`)
+#### 7. Suffering Tracker (`run_suffering_tracker.bat`)
 - **The one metric that matters:** Derivative Range
 - Track violence of breathing transitions over time
 - Color-coded: Red = bad nights, Green = good nights
@@ -69,7 +78,7 @@ Traditional metrics count apneas and hypopneas. We measure how *violently* your 
 
 ### Synthetic Data Generator (Web App):
 
-#### 7. Synthetic Data Generator (`synthetic_generator.html`) 🧸 **TOY MODEL**
+#### 8. Synthetic Data Generator (`synthetic_generator.html`) 🧸 **TOY MODEL**
 - **⚠️ Educational toy model - not physiologically accurate, useful for demonstration and testing**
 - **Interactive coupled oscillator simulator** for generating synthetic respiratory data
 - **Visual 3-segment pendulum** with color-cycling trace (full spectrum every 60 seconds)
@@ -85,7 +94,7 @@ Traditional metrics count apneas and hypopneas. We measure how *violently* your 
 - Pure HTML/JavaScript - no installation needed, just open in browser
 - 🧪 **Useful for testing analysis tools and exploring concepts, not for clinical accuracy**
 
-#### 8. CSV to EDF Converter (`run_csv_to_edf.bat`)
+#### 9. CSV to EDF Converter (`run_csv_to_edf.bat`)
 - Convert synthetic CSV data to ResMed-compatible EDF format
 - Automatically resamples to 25 Hz to match ResMed devices
 - Creates proper EDF headers with signal metadata
@@ -218,6 +227,7 @@ OscilloBreath/
 ├── phase_transition_analyzer.py    # State change detection
 ├── lyapunov_analyzer.py           # Chaos analysis (LLE)
 ├── lyapunov_analyzer_fast.py      # Optimized version with downsampling
+├── lyapunov_longitudinal.py       # Longitudinal LLE tracker
 ├── philips_loader.py              # Philips DreamStation parser + decryption
 ├── data_loader.py                 # Universal loader (auto-detects format)
 ├── synthetic_generator.html       # Interactive web app for synthetic data
@@ -229,6 +239,7 @@ OscilloBreath/
 ├── run_phase_transitions.bat      # Launch transition analyzer
 ├── run_lyapunov.bat               # Launch Lyapunov analysis
 ├── run_lyapunov_fast.bat          # Launch fast Lyapunov analysis
+├── run_lyapunov_longitudinal.bat  # Launch longitudinal LLE tracker
 ├── run_csv_to_edf.bat             # Launch CSV to EDF converter
 ├── requirements.txt               # Python dependencies
 ├── README.md                      # This file
