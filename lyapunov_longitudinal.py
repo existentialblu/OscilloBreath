@@ -30,20 +30,23 @@ def parse_date_from_filename(filename):
         return None
 
 def find_edf_files(folder_path):
-    """Find all .edf files in folder and subdirectories, sort by date"""
+    """Find all .edf files in folder and subdirectories, group by date"""
     folder = Path(folder_path)
     # Use ** to search recursively in all subdirectories
     edf_files = list(folder.glob('**/*_BRP.edf'))
 
-    # Sort by date extracted from filename
-    valid_files = []
+    # Group by date
+    from collections import defaultdict
+    date_groups = defaultdict(list)
+
     for f in edf_files:
         date = parse_date_from_filename(f.stem)
         if date:
-            valid_files.append((date, f))
+            date_groups[date].append(f)
 
-    valid_files.sort(key=lambda x: x[0])
-    return valid_files
+    # Sort dates and return as list of (date, [files]) tuples
+    sorted_dates = sorted(date_groups.items(), key=lambda x: x[0])
+    return sorted_dates
 
 def time_delay_embedding(signal, tau, embedding_dim):
     """Create time-delay embedded phase space reconstruction"""
@@ -170,20 +173,39 @@ def smooth_data(values, window_size=7):
 
     return smoothed
 
-def process_night(file_path, date):
-    """Process a single night and return LLE"""
-    print(f"\nProcessing {date.strftime('%Y-%m-%d')}...")
+def process_night(file_paths, date):
+    """Process a single night (concatenating multiple sessions) and return LLE"""
+    print(f"\nProcessing {date.strftime('%Y-%m-%d')} ({len(file_paths)} session(s))...")
 
     try:
-        # Load data
-        flow, sample_rate, data_type = load_flow_data(str(file_path))
+        # Load and concatenate all sessions from this night
+        all_flow = []
+        sample_rate = None
 
-        if flow is None:
-            print(f"  Failed to load data")
+        for file_path in file_paths:
+            print(f"  Loading session: {file_path.name}")
+            flow, fs, data_type = load_flow_data(str(file_path))
+
+            if flow is None:
+                print(f"    Failed to load")
+                continue
+
+            if sample_rate is None:
+                sample_rate = fs
+            elif sample_rate != fs:
+                print(f"    WARNING: Sample rate mismatch ({fs} vs {sample_rate}), skipping")
+                continue
+
+            all_flow.append(flow)
+
+        if not all_flow:
+            print(f"  No valid data loaded")
             return None
 
+        # Concatenate all sessions
+        flow = np.concatenate(all_flow)
         duration_hours = len(flow) / sample_rate / 3600
-        print(f"  Duration: {duration_hours:.1f} hours")
+        print(f"  Total duration: {duration_hours:.1f} hours ({len(all_flow)} session(s) concatenated)")
 
         # Downsample heavily for LLE analysis
         target_fs = 2.0  # 2 Hz target
@@ -217,7 +239,7 @@ def process_night(file_path, date):
         print(f"  Error: {e}")
         return None
 
-def create_longitudinal_plot(dates, lle_values, output_path):
+def create_longitudinal_plot(dates, lle_values, output_path, log_scale=False):
     """Create longitudinal plot of LLE over time"""
 
     # Convert dates to strings for plotting
@@ -230,6 +252,17 @@ def create_longitudinal_plot(dates, lle_values, output_path):
     mean_lle = np.mean(lle_values)
     median_lle = np.median(lle_values)
     std_lle = np.std(lle_values)
+
+    # Calculate order of magnitude range for log scale decision
+    lle_abs = np.abs(lle_values)
+    lle_abs = lle_abs[lle_abs > 0]  # Filter out zeros
+    if len(lle_abs) > 0:
+        oom_range = np.log10(np.max(lle_abs)) - np.log10(np.min(lle_abs))
+        print(f"\nLLE spans {oom_range:.1f} orders of magnitude")
+        if oom_range > 2 and not log_scale:
+            print("  Consider using log scale for better visualization")
+    else:
+        oom_range = 0
 
     # Create color array based on LLE values
     # Positive = red (chaotic), Near-zero = yellow (periodic), Negative = green (stable)
@@ -300,20 +333,30 @@ def create_longitudinal_plot(dates, lle_values, output_path):
         annotation_position="left"
     )
 
+    # Y-axis configuration
+    yaxis_config = dict(
+        title="Largest Lyapunov Exponent (bits/second)" + (" [LOG SCALE]" if log_scale else ""),
+        zeroline=True,
+        zerolinecolor='rgba(255,255,255,0.3)',
+        zerolinewidth=2
+    )
+
+    if log_scale:
+        # Use symlog for values that can be negative
+        # This creates a log scale for large values but linear near zero
+        yaxis_config['type'] = 'log'
+        yaxis_config['title'] = "Largest Lyapunov Exponent (bits/second) [LOG SCALE]"
+
     # Layout
     fig.update_layout(
         title=f"Longitudinal Lyapunov Exponent Analysis<br>" +
-              f"<sub>Mean: {mean_lle:.4f} bits/s | Median: {median_lle:.4f} | Std: {std_lle:.4f} | N={len(dates)} nights</sub>",
+              f"<sub>Mean: {mean_lle:.4f} bits/s | Median: {median_lle:.4f} | Std: {std_lle:.4f} | N={len(dates)} nights | " +
+              f"OOM range: {oom_range:.1f}</sub>",
         xaxis=dict(
             title="Date",
             tickangle=-45
         ),
-        yaxis=dict(
-            title="Largest Lyapunov Exponent (bits/second)",
-            zeroline=True,
-            zerolinecolor='rgba(255,255,255,0.3)',
-            zerolinewidth=2
-        ),
+        yaxis=yaxis_config,
         height=700,
         hovermode='closest',
         template='plotly_dark',
@@ -324,8 +367,20 @@ def create_longitudinal_plot(dates, lle_values, output_path):
         )
     )
 
+    # Configure PNG export with descriptive filename
+    config = {
+        'toImageButtonOptions': {
+            'format': 'png',
+            'filename': f'lyapunov_longitudinal_{dates[0].strftime("%Y%m%d")}-{dates[-1].strftime("%Y%m%d")}_mean{mean_lle:.3f}',
+            'height': 700,
+            'width': 1400,
+            'scale': 2
+        },
+        'displaylogo': False
+    }
+
     # Save
-    fig.write_html(str(output_path))
+    fig.write_html(str(output_path), config=config)
     print(f"\nPlot saved to: {output_path}")
 
     return fig
@@ -353,12 +408,12 @@ def main():
 
     print(f"Found {len(file_list)} files")
 
-    # Process each night
+    # Process each night (may have multiple sessions)
     dates = []
     lle_values = []
 
-    for date, file_path in file_list:
-        lle = process_night(file_path, date)
+    for date, file_paths in file_list:
+        lle = process_night(file_paths, date)
 
         if lle is not None:
             dates.append(date)
@@ -379,9 +434,20 @@ def main():
 
     output_file = output_dir / "lyapunov_longitudinal.html"
 
+    # Determine if log scale is appropriate
+    lle_abs = np.abs(lle_values)
+    lle_abs = lle_abs[lle_abs > 0]
+    if len(lle_abs) > 0:
+        oom_range = np.log10(np.max(lle_abs)) - np.log10(np.min(lle_abs))
+        use_log = oom_range > 2.0  # Auto-enable log scale if >2 OOM range
+    else:
+        use_log = False
+
     # Create plot
     print("\nCreating longitudinal plot...")
-    fig = create_longitudinal_plot(dates, lle_values, output_file)
+    if use_log:
+        print("Using logarithmic scale (OOM range > 2)")
+    fig = create_longitudinal_plot(dates, lle_values, output_file, log_scale=use_log)
 
     # Summary statistics
     print()
