@@ -52,12 +52,13 @@ Traditional metrics count apneas and hypopneas. We measure how *violently* your 
 - ✅ **Works with both ResMed and Philips**
 
 #### 5. Longitudinal Lyapunov Tracker (`run_lyapunov_longitudinal.bat`)
-- Track LLE (chaos vs stability) over months/years
-- One LLE value per night showing oscillator behavior
-- Color-coded: Red = chaotic, Yellow = periodic, Green = stable
-- Smoothed trend line to see long-term patterns
-- Summary statistics: mean, median, categorization of nights
-- See when therapy changes affected stability
+- **LIMITED UTILITY**: LLE is very noisy night-to-night, trends are hard to see even with heavy smoothing
+- One LLE value per night (concatenates multiple sessions from same date)
+- Higher LLE = adaptive/responsive oscillator (GOOD - controlled chaos)
+- Lower LLE = rigid/periodic oscillator (BAD - unable to adapt to sleep stage changes)
+- **Best use**: Compare specific bad nights vs good nights directly, not for trend tracking
+- LLE may be more of a personal respiratory constant than a changing metric
+- Use derivative range (suffering tracker) for actual longitudinal trend analysis
 - ⚠️ **ResMed EDF only** (uses filename timestamps)
 
 ### ResMed-Only Tools (Not Yet Updated):
@@ -201,6 +202,8 @@ The **Largest Lyapunov Exponent (LLE)** measures the fundamental nature of your 
 **The goal is positive LLE with low derivative range** - a responsive oscillator that adapts smoothly. Well-tuned ASV shows positive LLE (adaptive) with low derivative violence (smooth). Poorly tuned shows near-zero LLE (rigid) with high derivative violence (jerky).
 
 **Technical details**: Uses time-delay embedding (Takens' theorem) to reconstruct the attractor from 1D flow data, then applies Rosenstein's algorithm to measure trajectory divergence rates.
+
+**Longitudinal note**: LLE appears to be relatively constant night-to-night within an individual, possibly representing a fundamental respiratory phenotype rather than a metric that changes meaningfully over time. High night-to-night variability limits its utility for tracking therapy changes. For longitudinal trend analysis, use derivative range instead.
 
 ### Self-Managed ASV Tuning
 
