@@ -239,14 +239,15 @@ def process_night(file_paths, date):
         print(f"  Error: {e}")
         return None
 
-def create_longitudinal_plot(dates, lle_values, output_path, log_scale=False):
+def create_longitudinal_plot(dates, lle_values, output_path, log_scale=True):
     """Create longitudinal plot of LLE over time"""
 
     # Convert dates to strings for plotting
     date_strings = [d.strftime('%Y-%m-%d') for d in dates]
 
-    # Smooth the LLE values
-    lle_smoothed = smooth_data(lle_values, window_size=7)
+    # Heavy smoothing to show trends through noise (30-day window)
+    window_size = min(30, len(lle_values) // 3)  # 30 days or 1/3 of data
+    lle_smoothed = smooth_data(lle_values, window_size=window_size)
 
     # Calculate statistics
     mean_lle = np.mean(lle_values)
@@ -264,73 +265,67 @@ def create_longitudinal_plot(dates, lle_values, output_path, log_scale=False):
     else:
         oom_range = 0
 
-    # Create color array based on LLE values
-    # Positive = red (chaotic), Near-zero = yellow (periodic), Negative = green (stable)
-    colors = []
-    for lle in lle_values:
-        if lle > 0.01:
-            colors.append('rgba(220, 50, 50, 0.7)')  # Red - chaotic
-        elif lle < -0.01:
-            colors.append('rgba(50, 200, 50, 0.7)')  # Green - stable
-        else:
-            colors.append('rgba(220, 180, 50, 0.7)')  # Yellow - periodic
+    # Calculate confidence bands (±1 std dev in rolling window)
+    window_size_std = min(30, len(lle_values) // 3)
+    upper_band = []
+    lower_band = []
+
+    for i in range(len(lle_values)):
+        start_idx = max(0, i - window_size_std // 2)
+        end_idx = min(len(lle_values), i + window_size_std // 2)
+        window_data = lle_values[start_idx:end_idx]
+
+        local_mean = lle_smoothed[i]
+        local_std = np.std(window_data)
+
+        upper_band.append(local_mean + local_std)
+        lower_band.append(local_mean - local_std)
 
     # Create figure
     fig = go.Figure()
 
-    # Scatter plot with colors
+    # Confidence band
+    fig.add_trace(go.Scatter(
+        x=date_strings + date_strings[::-1],
+        y=upper_band + lower_band[::-1],
+        fill='toself',
+        fillcolor='rgba(100, 100, 255, 0.2)',
+        line=dict(color='rgba(255,255,255,0)'),
+        showlegend=True,
+        name='±1 Std Dev',
+        hoverinfo='skip'
+    ))
+
+    # Scatter plot - single color, low opacity to show density
     fig.add_trace(go.Scatter(
         x=date_strings,
         y=lle_values,
         mode='markers',
         marker=dict(
-            size=10,
-            color=colors,
-            line=dict(color='white', width=1)
+            size=6,
+            color='rgba(150, 150, 150, 0.4)',
+            line=dict(color='rgba(255,255,255,0.2)', width=0.5)
         ),
         name='Nightly LLE',
         hovertemplate='%{x}<br>LLE: %{y:.4f} bits/s<extra></extra>'
     ))
 
-    # Smoothed trend line
+    # Smoothed trend line - prominent
     fig.add_trace(go.Scatter(
         x=date_strings,
         y=lle_smoothed,
         mode='lines',
-        line=dict(color='rgba(100, 100, 255, 0.8)', width=3),
-        name='Smoothed Trend',
+        line=dict(color='rgba(100, 150, 255, 1.0)', width=4),
+        name=f'Smoothed Trend ({window_size}-day)',
         hovertemplate='%{x}<br>Smoothed: %{y:.4f} bits/s<extra></extra>'
     ))
 
-    # Mean line
+    # Mean line only
     fig.add_hline(
         y=mean_lle,
-        line=dict(color='gray', dash='dash', width=2),
+        line=dict(color='rgba(255, 255, 255, 0.4)', dash='dash', width=1.5),
         annotation_text=f"Mean: {mean_lle:.4f}",
-        annotation_position="right"
-    )
-
-    # Zero line
-    fig.add_hline(
-        y=0,
-        line=dict(color='white', dash='dot', width=1),
-        annotation_text="Zero (periodic)",
-        annotation_position="left"
-    )
-
-    # +0.01 and -0.01 reference lines
-    fig.add_hline(
-        y=0.01,
-        line=dict(color='rgba(220, 50, 50, 0.3)', dash='dot', width=1),
-        annotation_text="Chaotic threshold",
-        annotation_position="left"
-    )
-
-    fig.add_hline(
-        y=-0.01,
-        line=dict(color='rgba(50, 200, 50, 0.3)', dash='dot', width=1),
-        annotation_text="Stable threshold",
-        annotation_position="left"
+        annotation_position="top right"
     )
 
     # Y-axis configuration
@@ -349,9 +344,8 @@ def create_longitudinal_plot(dates, lle_values, output_path, log_scale=False):
 
     # Layout
     fig.update_layout(
-        title=f"Longitudinal Lyapunov Exponent Analysis<br>" +
-              f"<sub>Mean: {mean_lle:.4f} bits/s | Median: {median_lle:.4f} | Std: {std_lle:.4f} | N={len(dates)} nights | " +
-              f"OOM range: {oom_range:.1f}</sub>",
+        title=f"Longitudinal Lyapunov Exponent Analysis ({window_size}-day smoothing)<br>" +
+              f"<sub>Mean: {mean_lle:.4f} bits/s | Median: {median_lle:.4f} | Std: {std_lle:.4f} | N={len(dates)} nights</sub>",
         xaxis=dict(
             title="Date",
             tickangle=-45
@@ -439,14 +433,12 @@ def main():
     lle_abs = lle_abs[lle_abs > 0]
     if len(lle_abs) > 0:
         oom_range = np.log10(np.max(lle_abs)) - np.log10(np.min(lle_abs))
-        use_log = oom_range > 2.0  # Auto-enable log scale if >2 OOM range
+        use_log = oom_range > 1.0  # Use log scale if >1 OOM range
     else:
-        use_log = False
+        use_log = True  # Default to log
 
     # Create plot
-    print("\nCreating longitudinal plot...")
-    if use_log:
-        print("Using logarithmic scale (OOM range > 2)")
+    print("\nCreating longitudinal plot with log scale...")
     fig = create_longitudinal_plot(dates, lle_values, output_file, log_scale=use_log)
 
     # Summary statistics
@@ -464,15 +456,12 @@ def main():
     print(f"Max: {np.max(lle_values):.4f} bits/second")
     print()
 
-    # Categorize nights
-    chaotic = sum(1 for lle in lle_values if lle > 0.01)
-    stable = sum(1 for lle in lle_values if lle < -0.01)
-    periodic = len(lle_values) - chaotic - stable
-
-    print(f"Night categories:")
-    print(f"  Chaotic (LLE > 0.01): {chaotic} nights ({100*chaotic/len(lle_values):.1f}%)")
-    print(f"  Periodic (|LLE| < 0.01): {periodic} nights ({100*periodic/len(lle_values):.1f}%)")
-    print(f"  Stable (LLE < -0.01): {stable} nights ({100*stable/len(lle_values):.1f}%)")
+    # Show percentile distribution instead of arbitrary categories
+    percentiles = [10, 25, 50, 75, 90]
+    print(f"LLE Percentiles:")
+    for p in percentiles:
+        val = np.percentile(lle_values, p)
+        print(f"  {p}th: {val:.4f} bits/second")
     print("=" * 70)
 
     # Open in browser
