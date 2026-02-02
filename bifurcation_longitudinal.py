@@ -396,6 +396,15 @@ def analyze_night_data(flow, sample_rate, night_date, night_label, num_sessions=
         # LLE range (max - min) indicates how much the system varies
         lle_range = max_lle - min_lle
 
+        # Percent of time in periodicity (LLE below threshold)
+        # Threshold of 0.035 based on observed data: min_lle 0.02-0.03 = "bad collapse"
+        periodicity_threshold = 0.035
+        valid_lle = lle_values[~np.isnan(lle_values)]
+        if len(valid_lle) > 0:
+            percent_periodic = 100.0 * np.sum(valid_lle < periodicity_threshold) / len(valid_lle)
+        else:
+            percent_periodic = 0.0
+
         return {
             'filename': night_label,
             'date': night_date,
@@ -403,6 +412,7 @@ def analyze_night_data(flow, sample_rate, night_date, night_label, num_sessions=
             'num_sessions': num_sessions,
             'min_lle': min_lle,
             'collapse_time_min': collapse_time_min,
+            'percent_periodic': percent_periodic,
             'overall_lle': overall_lle,
             'max_lle': max_lle,
             'lle_range': lle_range,
@@ -502,7 +512,8 @@ def save_results_csv(results, output_path):
 
     fieldnames = [
         'filename', 'date', 'duration_hours', 'num_sessions',
-        'min_lle', 'collapse_time_min', 'overall_lle', 'max_lle', 'lle_range', 'lle_std',
+        'min_lle', 'collapse_time_min', 'percent_periodic',
+        'overall_lle', 'max_lle', 'lle_range', 'lle_std',
         'derivative_violence', 'acceleration_ratio', 'energy_ratio',
         'jerk_ratio', 'cv_ratio', 'flow_std', 'deriv_std'
     ]
@@ -535,12 +546,12 @@ def create_longitudinal_plot(results, output_path):
         subplot_titles=(
             'Minimum LLE Over Time (lower = more periodic at worst)',
             'Overall LLE (median across night)',
-            'Collapse Timing (minutes into night)',
-            'LLE Range (max - min, higher = more variable)',
-            'Derivative Violence (Reynolds candidate)',
-            'Energy Ratio (Reynolds candidate)',
-            'CV Ratio (Reynolds candidate)',
-            'Jerk Ratio (Reynolds candidate)'
+            'Collapse Latency (minutes until worst periodicity)',
+            'Percent Time in Periodicity (LLE < 0.035)',
+            'Energy Ratio (best Reynolds predictor)',
+            'LLE Range (max - min)',
+            'Derivative Violence',
+            'Acceleration Ratio'
         ),
         vertical_spacing=0.08,
         horizontal_spacing=0.1
@@ -578,15 +589,17 @@ def create_longitudinal_plot(results, output_path):
     add_metric_trace(1, 1, [r['min_lle'] for r in results_sorted], 'Min LLE', 'red')
     add_metric_trace(1, 2, [r['overall_lle'] for r in results_sorted], 'Overall LLE', 'blue')
 
-    # Row 2: Collapse timing and LLE range
-    add_metric_trace(2, 1, [r['collapse_time_min'] for r in results_sorted], 'Collapse Time', 'orange')
-    add_metric_trace(2, 2, [r['lle_range'] for r in results_sorted], 'LLE Range', 'purple')
+    # Row 2: Collapse timing metrics (key metrics)
+    add_metric_trace(2, 1, [r['collapse_time_min'] for r in results_sorted], 'Collapse Latency', 'orange')
+    add_metric_trace(2, 2, [r['percent_periodic'] for r in results_sorted], 'Percent Periodic', 'crimson')
 
-    # Row 3-4: Reynolds candidates
-    add_metric_trace(3, 1, [r['derivative_violence'] for r in results_sorted], 'Deriv Violence', 'green')
-    add_metric_trace(3, 2, [r['energy_ratio'] for r in results_sorted], 'Energy Ratio', 'teal')
-    add_metric_trace(4, 1, [r['cv_ratio'] for r in results_sorted], 'CV Ratio', 'magenta')
-    add_metric_trace(4, 2, [r['jerk_ratio'] for r in results_sorted], 'Jerk Ratio', 'brown')
+    # Row 3: Energy ratio (best predictor) and LLE range
+    add_metric_trace(3, 1, [r['energy_ratio'] for r in results_sorted], 'Energy Ratio', 'teal')
+    add_metric_trace(3, 2, [r['lle_range'] for r in results_sorted], 'LLE Range', 'purple')
+
+    # Row 4: Other Reynolds candidates
+    add_metric_trace(4, 1, [r['derivative_violence'] for r in results_sorted], 'Deriv Violence', 'green')
+    add_metric_trace(4, 2, [r['acceleration_ratio'] for r in results_sorted], 'Accel Ratio', 'brown')
 
     # Update layout
     fig.update_layout(
@@ -625,8 +638,8 @@ def create_correlation_plot(results, output_path):
         return None
 
     metrics = ['min_lle', 'overall_lle', 'lle_range', 'collapse_time_min',
-               'derivative_violence', 'acceleration_ratio', 'energy_ratio',
-               'jerk_ratio', 'cv_ratio']
+               'percent_periodic', 'derivative_violence', 'acceleration_ratio',
+               'energy_ratio', 'jerk_ratio', 'cv_ratio']
 
     # Build correlation matrix
     data = np.array([[r[m] for m in metrics] for r in results_valid])
@@ -693,7 +706,10 @@ def print_summary_stats(results):
     print(f"  Overall LLE: mean={np.mean(overall_lles):.4f}, std={np.std(overall_lles):.4f}")
 
     collapse_times = [r['collapse_time_min'] for r in results]
-    print(f"  Collapse time: mean={np.mean(collapse_times):.1f} min, std={np.std(collapse_times):.1f}")
+    print(f"  Collapse latency: mean={np.mean(collapse_times):.1f} min, std={np.std(collapse_times):.1f}")
+
+    percent_periodic = [r['percent_periodic'] for r in results]
+    print(f"  Percent periodic: mean={np.mean(percent_periodic):.1f}%, std={np.std(percent_periodic):.1f}%")
 
     print()
     print("Reynolds Candidates (pre-collapse window):")
@@ -704,7 +720,7 @@ def print_summary_stats(results):
     # Correlations with min_lle
     print()
     print("Correlations with Min LLE (most periodic moment):")
-    for metric in ['derivative_violence', 'acceleration_ratio', 'energy_ratio', 'jerk_ratio', 'cv_ratio']:
+    for metric in ['collapse_time_min', 'percent_periodic', 'derivative_violence', 'acceleration_ratio', 'energy_ratio', 'jerk_ratio', 'cv_ratio']:
         values = [r[metric] for r in results]
         corr = np.corrcoef(min_lles, values)[0, 1]
         print(f"  {metric:22s}: r = {corr:+.3f}")
