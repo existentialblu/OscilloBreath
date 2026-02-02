@@ -24,7 +24,7 @@ Traditional metrics count apneas and hypopneas. We measure how *violently* your 
 - Visualize breathing as a phase space portrait (flow vs dFlow/dt)
 - See your respiratory attractor structure
 - Color-coded by time to show evolution
-- Compare APAP chaos vs ASV stability
+- Compare APAP limit cycles vs ASV adaptive chaos
 - ✅ **Works with both ResMed and Philips**
 
 #### 2. Single Night Deep Dive (`run_single_night.bat`)
