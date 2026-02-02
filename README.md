@@ -61,16 +61,34 @@ Traditional metrics count apneas and hypopneas. We measure how *violently* your 
 - Use derivative range (suffering tracker) for actual longitudinal trend analysis
 - ⚠️ **ResMed EDF only** (uses filename timestamps)
 
+#### 6. Bifurcation Detector (`run_bifurcation.bat`)
+- **Predict collapse into periodicity**: Detects when healthy adaptive chaos degrades into rigid limit cycles
+- Scans whole night for minimum LLE window (maximum periodicity = "collapse")
+- Analyzes the pre-collapse window for predictive signatures
+- Computes **Respiratory Reynolds number** candidates — dimensionless ratios predicting regime transition
+- Includes IPAP-based metrics when pressure data available (machine's "oh shit" signal)
+- ~10 seconds per night on modest hardware
+- ✅ **Works with both ResMed and Philips**
+
+#### 7. Longitudinal Bifurcation Analysis (`run_bifurcation_longitudinal.bat`)
+- Track bifurcation metrics across months/years of data
+- Concatenates multiple sessions per night automatically
+- Outputs CSV with all Reynolds candidates for further analysis
+- Correlation matrix showing which metrics predict collapse depth
+- Finds optimal coefficients for combined Reynolds formulas
+- ~1 second per night (processes 1 year of data in ~6 minutes)
+- ⚠️ **ResMed EDF only** (uses filename timestamps for night grouping)
+
 ### ResMed-Only Tools (Not Yet Updated):
 
-#### 6. Longitudinal Tracker (`run_longitudinal.bat`)
+#### 8. Longitudinal Tracker (`run_longitudinal.bat`)
 - Track oscillator metrics over months/years
 - See the exact moment ASV stabilized your breathing
 - Multiple metrics: flow variability, derivative violence, attractor tightness, etc.
 - Smoothed trends to cut through daily noise
 - ⚠️ **ResMed EDF only** (Philips support coming soon)
 
-#### 7. Suffering Tracker (`run_suffering_tracker.bat`)
+#### 9. Suffering Tracker (`run_suffering_tracker.bat`)
 - **The one metric that matters:** Derivative Range
 - Track violence of breathing transitions over time
 - Color-coded: Red = bad nights, Green = good nights
@@ -79,7 +97,7 @@ Traditional metrics count apneas and hypopneas. We measure how *violently* your 
 
 ### Synthetic Data Generator (Web App):
 
-#### 8. Synthetic Data Generator (`synthetic_generator.html`) 🧸 **TOY MODEL**
+#### 10. Synthetic Data Generator (`synthetic_generator.html`) 🧸 **TOY MODEL**
 - **⚠️ Educational toy model - not physiologically accurate, useful for demonstration and testing**
 - **Interactive coupled oscillator simulator** for generating synthetic respiratory data
 - **Visual 3-segment pendulum** with color-cycling trace (full spectrum every 60 seconds)
@@ -95,7 +113,7 @@ Traditional metrics count apneas and hypopneas. We measure how *violently* your 
 - Pure HTML/JavaScript - no installation needed, just open in browser
 - 🧪 **Useful for testing analysis tools and exploring concepts, not for clinical accuracy**
 
-#### 9. CSV to EDF Converter (`run_csv_to_edf.bat`)
+#### 11. CSV to EDF Converter (`run_csv_to_edf.bat`)
 - Convert synthetic CSV data to ResMed-compatible EDF format
 - Automatically resamples to 25 Hz to match ResMed devices
 - Creates proper EDF headers with signal metadata
@@ -205,6 +223,52 @@ The **Largest Lyapunov Exponent (LLE)** measures the fundamental nature of your 
 
 **Longitudinal note**: LLE appears to be relatively constant night-to-night within an individual, possibly representing a fundamental respiratory phenotype rather than a metric that changes meaningfully over time. High night-to-night variability limits its utility for tracking therapy changes. For longitudinal trend analysis, use derivative range instead.
 
+### Respiratory Reynolds Number: Predicting Collapse
+
+Healthy breathing lives "just into strange" — bounded chaos that allows adaptive response to changing conditions. The **Respiratory Reynolds number** is a dimensionless ratio that predicts when this healthy chaos will collapse into rigid periodicity — the bifurcation point where you get trapped in a limit cycle.
+
+Like the fluid dynamics Reynolds number (inertial/viscous forces), the Respiratory Reynolds captures the ratio of destabilizing to stabilizing forces:
+
+**Best predictor found:**
+```
+RR = energy_ratio = Σ(dFlow/dt)² / Σ(Flow)²
+```
+
+This measures how much of your breathing effort goes into state changes vs actual air movement. High energy_ratio = inefficient oscillation, system "fighting itself" = predicts deeper collapse into periodicity.
+
+**What about IPAP/pressure data?** We tested whether machine pressure response (ipap_trend — is pressure rising?) would add predictive power. Result: IPAP metrics show interesting patterns on individual nights but add essentially zero correlation longitudinally (r ≈ 0.03). The machine's "oh shit" signal predicts *that* collapse is approaching, but not *how deep* it goes. Flow metrics tell you about your breathing; pressure tells you about the machine's opinion, which turns out to be less predictive than your actual breathing dynamics.
+
+## Key Findings (n=1, 455 nights)
+
+Analysis of one user's data from December 2024 to February 2026, spanning APAP and ASV therapy:
+
+### The Bifurcation Framework Works
+- **energy_ratio correlates with collapse depth** (r = -0.49 with min_lle)
+- Higher pre-collapse energy_ratio → deeper collapse into periodicity
+- This is the strongest single predictor found among all candidates tested
+
+### APAP vs ASV: Clear Regime Difference
+- **ASV delays collapse 2-3x** compared to APAP (collapse at 400-700 min vs 100-300 min)
+- ASV maintains healthy adaptive chaos longer before any periodic dip
+- The APAP → ASV transition (Feb 2025) is clearly visible in all metrics
+- ASV creates actual bistability; APAP keeps the system in a gray zone
+
+### Good Nights vs Bad Nights
+- **Good nights have shallower collapses** — min_lle stays higher (0.04-0.05 vs 0.02-0.03)
+- Good nights show cleaner separation between pre-collapse and stable-chaos states
+- Bad nights: the system is always kind of approaching collapse, just sometimes it gets there
+- Good nights: distinct stable regime, so approaching collapse looks different from baseline
+
+### What Doesn't Predict Collapse Depth
+- **derivative_violence**: r ≈ 0 (violence of breathing doesn't predict how deep you fall)
+- **cv_ratio**: r ≈ 0 (variability of breathing rate relative to depth)
+- **IPAP metrics**: r ≈ 0 longitudinally (machine response doesn't predict collapse severity)
+
+### Implications for Therapy
+- Energy_ratio in the pre-collapse window may be a useful metric for tuning
+- ASV's adaptive pressure support appears to genuinely stabilize the oscillator
+- The goal is not to eliminate all periodicity, but to keep collapses shallow (stay "just into strange")
+
 ### Self-Managed ASV Tuning
 
 This tool was built by someone self-managing their ASV after sleep medicine proved useless for UARS and high loop gain ("it's just TeCsA" 🙄).
@@ -231,8 +295,10 @@ OscilloBreath/
 ├── lyapunov_analyzer.py           # Chaos analysis (LLE)
 ├── lyapunov_analyzer_fast.py      # Optimized version with downsampling
 ├── lyapunov_longitudinal.py       # Longitudinal LLE tracker
+├── bifurcation_detector.py        # Find collapse points, compute Reynolds numbers
+├── bifurcation_longitudinal.py    # Longitudinal bifurcation analysis
 ├── philips_loader.py              # Philips DreamStation parser + decryption
-├── data_loader.py                 # Universal loader (auto-detects format)
+├── data_loader.py                 # Universal loader (auto-detects format, now with pressure)
 ├── synthetic_generator.html       # Interactive web app for synthetic data
 ├── csv_to_edf.py                  # Convert synthetic CSV to ResMed EDF format
 ├── run.bat                         # Launch single night analysis
@@ -243,6 +309,8 @@ OscilloBreath/
 ├── run_lyapunov.bat               # Launch Lyapunov analysis
 ├── run_lyapunov_fast.bat          # Launch fast Lyapunov analysis
 ├── run_lyapunov_longitudinal.bat  # Launch longitudinal LLE tracker
+├── run_bifurcation.bat            # Launch bifurcation detector
+├── run_bifurcation_longitudinal.bat # Launch longitudinal bifurcation analysis
 ├── run_csv_to_edf.bat             # Launch CSV to EDF converter
 ├── requirements.txt               # Python dependencies
 ├── README.md                      # This file
