@@ -66,7 +66,7 @@ Traditional metrics count apneas and hypopneas. We measure how *violently* your 
 - Scans whole night for minimum LLE window (maximum periodicity = "collapse")
 - Analyzes the pre-collapse window for predictive signatures
 - Computes **Respiratory Reynolds number** candidates — dimensionless ratios predicting regime transition
-- Includes IPAP-based metrics when pressure data available (machine's "oh shit" signal)
+- Includes IPAP-based metrics when pressure data available (machine's "oh s**t" signal)
 - ~10 seconds per night on modest hardware
 - ✅ **Works with both ResMed and Philips**
 
@@ -236,7 +236,7 @@ RR = energy_ratio = Σ(dFlow/dt)² / Σ(Flow)²
 
 This measures how much of your breathing effort goes into state changes vs actual air movement. High energy_ratio = inefficient oscillation, system "fighting itself" = predicts deeper collapse into periodicity.
 
-**What about IPAP/pressure data?** We tested whether machine pressure response (ipap_trend — is pressure rising?) would add predictive power. Result: IPAP metrics show interesting patterns on individual nights but add essentially zero correlation longitudinally (r ≈ 0.03). The machine's "oh shit" signal predicts *that* collapse is approaching, but not *how deep* it goes. Flow metrics tell you about your breathing; pressure tells you about the machine's opinion, which turns out to be less predictive than your actual breathing dynamics.
+**What about IPAP/pressure data?** We tested whether machine pressure response (ipap_trend — is pressure rising?) would add predictive power. Result: IPAP metrics show interesting patterns on individual nights but add essentially zero correlation longitudinally (r ≈ 0.03). The machine's "oh s**t" signal predicts *that* collapse is approaching, but not *how deep* it goes. Flow metrics tell you about your breathing; pressure tells you about the machine's opinion, which turns out to be less predictive than your actual breathing dynamics.
 
 ## Key Findings (n=1, 455 nights)
 
