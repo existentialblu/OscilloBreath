@@ -72,10 +72,13 @@ Traditional metrics count apneas and hypopneas. We measure how *violently* your 
 
 #### 7. Longitudinal Bifurcation Analysis (`run_bifurcation_longitudinal.bat`)
 - Track bifurcation metrics across months/years of data
+- **Collapse latency**: How long until worst periodicity (minutes into night)
+- **Descent time**: How quickly you fall once collapse starts (seconds)
+- **Percent periodic**: What fraction of the night is spent in periodicity (LLE < 0.15)
+- **Number of episodes**: How many distinct periodic traps per night
 - Concatenates multiple sessions per night automatically
-- Outputs CSV with all Reynolds candidates for further analysis
+- Outputs CSV with all metrics for further analysis
 - Correlation matrix showing which metrics predict collapse depth
-- Finds optimal coefficients for combined Reynolds formulas
 - ~1 second per night (processes 1 year of data in ~6 minutes)
 - ⚠️ **ResMed EDF only** (uses filename timestamps for night grouping)
 
@@ -248,16 +251,18 @@ Analysis of one user's data from December 2024 to February 2026, spanning APAP a
 - This is the strongest single predictor found among all candidates tested
 
 ### APAP vs ASV: Clear Regime Difference
-- **ASV delays collapse 2-3x** compared to APAP (collapse at 400-700 min vs 100-300 min)
-- ASV maintains healthy adaptive chaos longer before any periodic dip
+- **Collapse latency**: APAP = 100-500 min, ASV = 500-1500 min. **ASV delays collapse 3-5x.**
+- **Descent time**: APAP = 2000-3000 sec (slow grinding fall), ASV = 500-1500 sec (quicker but shallower)
+- **Percent periodic**: APAP = 5-20%, ASV = 0-5%. **Dramatic reduction.**
+- **Periodic episodes**: APAP = 2-10 per night, ASV = 0-3. Fewer distinct traps.
 - The APAP → ASV transition (Feb 2025) is clearly visible in all metrics
 - ASV creates actual bistability; APAP keeps the system in a gray zone
 
 ### Good Nights vs Bad Nights
-- **Good nights have shallower collapses** — min_lle stays higher (0.04-0.05 vs 0.02-0.03)
+- **Good nights have shallower collapses** — min_lle stays higher (0.15-0.20 vs 0.10-0.12)
 - Good nights show cleaner separation between pre-collapse and stable-chaos states
-- Bad nights: the system is always kind of approaching collapse, just sometimes it gets there
-- Good nights: distinct stable regime, so approaching collapse looks different from baseline
+- Bad nights: the system is always kind of approaching collapse, grinding slowly downward
+- Good nights: distinct stable regime, collapse is brief and isolated rather than prolonged
 
 ### What Doesn't Predict Collapse Depth
 - **derivative_violence**: r ≈ 0 (violence of breathing doesn't predict how deep you fall)
@@ -297,6 +302,7 @@ OscilloBreath/
 ├── lyapunov_longitudinal.py       # Longitudinal LLE tracker
 ├── bifurcation_detector.py        # Find collapse points, compute Reynolds numbers
 ├── bifurcation_longitudinal.py    # Longitudinal bifurcation analysis
+├── debug_periodicity.py           # Diagnostic: LLE distribution for threshold calibration
 ├── philips_loader.py              # Philips DreamStation parser + decryption
 ├── data_loader.py                 # Universal loader (auto-detects format, now with pressure)
 ├── synthetic_generator.html       # Interactive web app for synthetic data
@@ -311,6 +317,7 @@ OscilloBreath/
 ├── run_lyapunov_longitudinal.bat  # Launch longitudinal LLE tracker
 ├── run_bifurcation.bat            # Launch bifurcation detector
 ├── run_bifurcation_longitudinal.bat # Launch longitudinal bifurcation analysis
+├── run_debug_periodicity.bat      # Launch LLE diagnostic tool
 ├── run_csv_to_edf.bat             # Launch CSV to EDF converter
 ├── requirements.txt               # Python dependencies
 ├── README.md                      # This file

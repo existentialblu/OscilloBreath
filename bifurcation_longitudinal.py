@@ -397,13 +397,38 @@ def analyze_night_data(flow, sample_rate, night_date, night_label, num_sessions=
         lle_range = max_lle - min_lle
 
         # Percent of time in periodicity (LLE below threshold)
-        # Threshold of 0.035 based on observed data: min_lle 0.02-0.03 = "bad collapse"
-        periodicity_threshold = 0.035
-        valid_lle = lle_values[~np.isnan(lle_values)]
-        if len(valid_lle) > 0:
-            percent_periodic = 100.0 * np.sum(valid_lle < periodicity_threshold) / len(valid_lle)
+        # Threshold of 0.15 based on diagnostic: captures ~10% of windows as clearly periodic
+        periodicity_threshold = 0.15
+        valid_lle_arr = lle_values[~np.isnan(lle_values)]
+        if len(valid_lle_arr) > 0:
+            percent_periodic = 100.0 * np.sum(valid_lle_arr < periodicity_threshold) / len(valid_lle_arr)
         else:
             percent_periodic = 0.0
+
+        # Count periodic episodes (consecutive windows below threshold)
+        in_episode = False
+        num_episodes = 0
+        for lle in lle_values:
+            if np.isnan(lle):
+                continue
+            if lle < periodicity_threshold:
+                if not in_episode:
+                    in_episode = True
+                    num_episodes += 1
+            else:
+                in_episode = False
+
+        # Immediate descent time: from max within 5 windows before min to min
+        lookback = min(5, min_idx)
+        descent_time_sec = np.nan
+        if lookback > 0:
+            recent_window = lle_values[min_idx - lookback:min_idx]
+            recent_times = times[min_idx - lookback:min_idx]
+            valid_recent = ~np.isnan(recent_window)
+            if np.any(valid_recent):
+                recent_max_idx = np.argmax(np.where(valid_recent, recent_window, -np.inf))
+                immediate_max_time = recent_times[recent_max_idx]
+                descent_time_sec = times[min_idx] - immediate_max_time  # Already in seconds
 
         return {
             'filename': night_label,
@@ -412,7 +437,9 @@ def analyze_night_data(flow, sample_rate, night_date, night_label, num_sessions=
             'num_sessions': num_sessions,
             'min_lle': min_lle,
             'collapse_time_min': collapse_time_min,
+            'descent_time_sec': descent_time_sec,
             'percent_periodic': percent_periodic,
+            'num_episodes': num_episodes,
             'overall_lle': overall_lle,
             'max_lle': max_lle,
             'lle_range': lle_range,
@@ -512,7 +539,8 @@ def save_results_csv(results, output_path):
 
     fieldnames = [
         'filename', 'date', 'duration_hours', 'num_sessions',
-        'min_lle', 'collapse_time_min', 'percent_periodic',
+        'min_lle', 'collapse_time_min', 'descent_time_sec',
+        'percent_periodic', 'num_episodes',
         'overall_lle', 'max_lle', 'lle_range', 'lle_std',
         'derivative_violence', 'acceleration_ratio', 'energy_ratio',
         'jerk_ratio', 'cv_ratio', 'flow_std', 'deriv_std'
@@ -542,18 +570,20 @@ def create_longitudinal_plot(results, output_path):
     dates = [r['date'] for r in results_sorted]
 
     fig = make_subplots(
-        rows=4, cols=2,
+        rows=5, cols=2,
         subplot_titles=(
-            'Minimum LLE Over Time (lower = more periodic at worst)',
+            'Minimum LLE (lower = deeper collapse)',
             'Overall LLE (median across night)',
             'Collapse Latency (minutes until worst periodicity)',
-            'Percent Time in Periodicity (LLE < 0.035)',
+            'Descent Time (seconds from local max to min)',
+            'Percent Time in Periodicity (LLE < 0.15)',
+            'Number of Periodic Episodes',
             'Energy Ratio (best Reynolds predictor)',
             'LLE Range (max - min)',
             'Derivative Violence',
             'Acceleration Ratio'
         ),
-        vertical_spacing=0.08,
+        vertical_spacing=0.06,
         horizontal_spacing=0.1
     )
 
@@ -589,22 +619,26 @@ def create_longitudinal_plot(results, output_path):
     add_metric_trace(1, 1, [r['min_lle'] for r in results_sorted], 'Min LLE', 'red')
     add_metric_trace(1, 2, [r['overall_lle'] for r in results_sorted], 'Overall LLE', 'blue')
 
-    # Row 2: Collapse timing metrics (key metrics)
+    # Row 2: Collapse timing metrics
     add_metric_trace(2, 1, [r['collapse_time_min'] for r in results_sorted], 'Collapse Latency', 'orange')
-    add_metric_trace(2, 2, [r['percent_periodic'] for r in results_sorted], 'Percent Periodic', 'crimson')
+    add_metric_trace(2, 2, [r.get('descent_time_sec', 0) or 0 for r in results_sorted], 'Descent Time', 'darkorange')
 
-    # Row 3: Energy ratio (best predictor) and LLE range
-    add_metric_trace(3, 1, [r['energy_ratio'] for r in results_sorted], 'Energy Ratio', 'teal')
-    add_metric_trace(3, 2, [r['lle_range'] for r in results_sorted], 'LLE Range', 'purple')
+    # Row 3: Periodicity metrics
+    add_metric_trace(3, 1, [r['percent_periodic'] for r in results_sorted], 'Percent Periodic', 'crimson')
+    add_metric_trace(3, 2, [r.get('num_episodes', 0) for r in results_sorted], 'Num Episodes', 'darkred')
 
-    # Row 4: Other Reynolds candidates
-    add_metric_trace(4, 1, [r['derivative_violence'] for r in results_sorted], 'Deriv Violence', 'green')
-    add_metric_trace(4, 2, [r['acceleration_ratio'] for r in results_sorted], 'Accel Ratio', 'brown')
+    # Row 4: Energy ratio (best predictor) and LLE range
+    add_metric_trace(4, 1, [r['energy_ratio'] for r in results_sorted], 'Energy Ratio', 'teal')
+    add_metric_trace(4, 2, [r['lle_range'] for r in results_sorted], 'LLE Range', 'purple')
+
+    # Row 5: Other Reynolds candidates
+    add_metric_trace(5, 1, [r['derivative_violence'] for r in results_sorted], 'Deriv Violence', 'green')
+    add_metric_trace(5, 2, [r['acceleration_ratio'] for r in results_sorted], 'Accel Ratio', 'brown')
 
     # Update layout
     fig.update_layout(
         title=f"Longitudinal Bifurcation Analysis<br><sub>{len(results_sorted)} nights from {dates[0].strftime('%Y-%m-%d')} to {dates[-1].strftime('%Y-%m-%d')}</sub>",
-        height=1400,
+        height=1600,
         showlegend=False
     )
 
@@ -616,7 +650,7 @@ def create_longitudinal_plot(results, output_path):
         'toImageButtonOptions': {
             'format': 'png',
             'filename': 'bifurcation_longitudinal',
-            'height': 1400,
+            'height': 1600,
             'width': 1600,
             'scale': 2
         },
@@ -638,7 +672,8 @@ def create_correlation_plot(results, output_path):
         return None
 
     metrics = ['min_lle', 'overall_lle', 'lle_range', 'collapse_time_min',
-               'percent_periodic', 'derivative_violence', 'acceleration_ratio',
+               'descent_time_sec', 'percent_periodic', 'num_episodes',
+               'derivative_violence', 'acceleration_ratio',
                'energy_ratio', 'jerk_ratio', 'cv_ratio']
 
     # Build correlation matrix
@@ -708,8 +743,16 @@ def print_summary_stats(results):
     collapse_times = [r['collapse_time_min'] for r in results]
     print(f"  Collapse latency: mean={np.mean(collapse_times):.1f} min, std={np.std(collapse_times):.1f}")
 
+    descent_times = [r.get('descent_time_sec', 0) or 0 for r in results]
+    valid_descent = [d for d in descent_times if d > 0]
+    if valid_descent:
+        print(f"  Descent time: mean={np.mean(valid_descent):.0f} sec, std={np.std(valid_descent):.0f}")
+
     percent_periodic = [r['percent_periodic'] for r in results]
-    print(f"  Percent periodic: mean={np.mean(percent_periodic):.1f}%, std={np.std(percent_periodic):.1f}%")
+    print(f"  Percent periodic (LLE<0.15): mean={np.mean(percent_periodic):.1f}%, std={np.std(percent_periodic):.1f}%")
+
+    num_episodes = [r.get('num_episodes', 0) for r in results]
+    print(f"  Periodic episodes: mean={np.mean(num_episodes):.1f}, std={np.std(num_episodes):.1f}")
 
     print()
     print("Reynolds Candidates (pre-collapse window):")
@@ -720,8 +763,9 @@ def print_summary_stats(results):
     # Correlations with min_lle
     print()
     print("Correlations with Min LLE (most periodic moment):")
-    for metric in ['collapse_time_min', 'percent_periodic', 'derivative_violence', 'acceleration_ratio', 'energy_ratio', 'jerk_ratio', 'cv_ratio']:
-        values = [r[metric] for r in results]
+    for metric in ['collapse_time_min', 'descent_time_sec', 'percent_periodic', 'num_episodes',
+                   'derivative_violence', 'acceleration_ratio', 'energy_ratio', 'jerk_ratio', 'cv_ratio']:
+        values = [r.get(metric, 0) or 0 for r in results]
         corr = np.corrcoef(min_lles, values)[0, 1]
         print(f"  {metric:22s}: r = {corr:+.3f}")
 
