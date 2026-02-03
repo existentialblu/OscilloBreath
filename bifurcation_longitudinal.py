@@ -588,12 +588,13 @@ def create_longitudinal_plot(results, output_path):
     )
 
     # Helper for adding traces with smoothing
+    # Returns y-axis range based on rolling average (to avoid outlier compression)
     def add_metric_trace(row, col, values, name, color):
         fig.add_trace(
             go.Scatter(
                 x=dates, y=values,
                 mode='markers',
-                marker=dict(size=4, color=color, opacity=0.5),
+                marker=dict(size=4, color=color, opacity=0.3),
                 name=name,
                 showlegend=False
             ),
@@ -601,6 +602,7 @@ def create_longitudinal_plot(results, output_path):
         )
 
         # Add rolling average if enough points
+        y_range = None
         if len(values) >= 7:
             rolling = np.convolve(values, np.ones(7)/7, mode='valid')
             rolling_dates = dates[3:-3]
@@ -615,25 +617,41 @@ def create_longitudinal_plot(results, output_path):
                 row=row, col=col
             )
 
+            # Calculate y-axis range based on rolling average with 20% padding
+            rolling_min = np.min(rolling)
+            rolling_max = np.max(rolling)
+            padding = (rolling_max - rolling_min) * 0.3
+            y_range = [max(0, rolling_min - padding), rolling_max + padding]
+
+        return row, col, y_range
+
+    # Collect y-axis ranges from each trace
+    y_ranges = {}
+
     # Row 1: LLE metrics
-    add_metric_trace(1, 1, [r['min_lle'] for r in results_sorted], 'Min LLE', 'red')
-    add_metric_trace(1, 2, [r['overall_lle'] for r in results_sorted], 'Overall LLE', 'blue')
+    y_ranges[(1, 1)] = add_metric_trace(1, 1, [r['min_lle'] for r in results_sorted], 'Min LLE', 'red')[2]
+    y_ranges[(1, 2)] = add_metric_trace(1, 2, [r['overall_lle'] for r in results_sorted], 'Overall LLE', 'blue')[2]
 
     # Row 2: Collapse timing metrics
-    add_metric_trace(2, 1, [r['collapse_time_min'] for r in results_sorted], 'Collapse Latency', 'orange')
-    add_metric_trace(2, 2, [r.get('descent_time_sec', 0) or 0 for r in results_sorted], 'Descent Time', 'darkorange')
+    y_ranges[(2, 1)] = add_metric_trace(2, 1, [r['collapse_time_min'] for r in results_sorted], 'Collapse Latency', 'orange')[2]
+    y_ranges[(2, 2)] = add_metric_trace(2, 2, [r.get('descent_time_sec', 0) or 0 for r in results_sorted], 'Descent Time', 'darkorange')[2]
 
     # Row 3: Periodicity metrics
-    add_metric_trace(3, 1, [r['percent_periodic'] for r in results_sorted], 'Percent Periodic', 'crimson')
-    add_metric_trace(3, 2, [r.get('num_episodes', 0) for r in results_sorted], 'Num Episodes', 'darkred')
+    y_ranges[(3, 1)] = add_metric_trace(3, 1, [r['percent_periodic'] for r in results_sorted], 'Percent Periodic', 'crimson')[2]
+    y_ranges[(3, 2)] = add_metric_trace(3, 2, [r.get('num_episodes', 0) for r in results_sorted], 'Num Episodes', 'darkred')[2]
 
     # Row 4: Energy ratio (best predictor) and LLE range
-    add_metric_trace(4, 1, [r['energy_ratio'] for r in results_sorted], 'Energy Ratio', 'teal')
-    add_metric_trace(4, 2, [r['lle_range'] for r in results_sorted], 'LLE Range', 'purple')
+    y_ranges[(4, 1)] = add_metric_trace(4, 1, [r['energy_ratio'] for r in results_sorted], 'Energy Ratio', 'teal')[2]
+    y_ranges[(4, 2)] = add_metric_trace(4, 2, [r['lle_range'] for r in results_sorted], 'LLE Range', 'purple')[2]
 
     # Row 5: Other Reynolds candidates
-    add_metric_trace(5, 1, [r['derivative_violence'] for r in results_sorted], 'Deriv Violence', 'green')
-    add_metric_trace(5, 2, [r['acceleration_ratio'] for r in results_sorted], 'Accel Ratio', 'brown')
+    y_ranges[(5, 1)] = add_metric_trace(5, 1, [r['derivative_violence'] for r in results_sorted], 'Deriv Violence', 'green')[2]
+    y_ranges[(5, 2)] = add_metric_trace(5, 2, [r['acceleration_ratio'] for r in results_sorted], 'Accel Ratio', 'brown')[2]
+
+    # Apply y-axis ranges based on rolling averages (scale to trend, not outliers)
+    for (row, col), y_range in y_ranges.items():
+        if y_range is not None:
+            fig.update_yaxes(range=y_range, row=row, col=col)
 
     # Update layout
     fig.update_layout(
