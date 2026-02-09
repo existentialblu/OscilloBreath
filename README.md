@@ -82,6 +82,21 @@ Traditional metrics count apneas and hypopneas. We measure how *violently* your 
 - ~1 second per night (processes 1 year of data in ~6 minutes)
 - ⚠️ **ResMed EDF only** (uses filename timestamps for night grouping)
 
+#### 8. Wavelet Analysis (`run_wavelet.bat`)
+- **Time-frequency decomposition** of respiratory flow using Morlet wavelet
+- Scalogram showing how frequency components evolve throughout the night
+- Frequency bands: VLF (periodic breathing), LF (slow modulation), RESP (normal breathing), HF (fast)
+- Dominant frequency tracking over time
+- Visually dramatic: APAP shows wall of instability, ASV shows calm with isolated events
+- ✅ **Works with both ResMed and Philips**
+
+#### 9. PBI & LF Longitudinal (`run_pbi.bat`)
+- **Two focused metrics** from wavelet analysis:
+- **PBI (Periodic Breathing Index)**: VLF power (0.01-0.04 Hz) — general respiratory stability
+- **LF Power**: Low frequency power (0.04-0.15 Hz) — **health status indicator, spikes when sick**
+- Note: These metrics capture different signals than bifurcation metrics (see findings below)
+- ⚠️ **ResMed EDF only** (uses filename timestamps for night grouping)
+
 ### ResMed-Only Tools (Not Yet Updated):
 
 #### 8. Longitudinal Tracker (`run_longitudinal.bat`)
@@ -274,6 +289,20 @@ Analysis of one user's data from December 2024 to February 2026, spanning APAP a
 - ASV's adaptive pressure support appears to genuinely stabilize the oscillator
 - The goal is not to eliminate all periodicity, but to keep collapses shallow (stay "just into strange")
 
+### Which Metrics For What
+
+**Bifurcation metrics** (collapse latency, percent periodic, energy ratio) are best for:
+- Detecting therapy changes (APAP → ASV transition is very clear)
+- Measuring therapy effectiveness
+- Tracking oscillator stability over time
+
+**Wavelet metrics** (PBI, LF Power) capture different signals:
+- **PBI (VLF Power)**: General respiratory stability, but does NOT cleanly isolate therapy transitions
+- **LF Power**: Health status indicator — spikes when sick, independent of therapy changes
+- Useful for detecting "something's off" even when therapy is working well
+
+**Bottom line**: Use bifurcation longitudinal for therapy optimization, use PBI+LF for health monitoring and illness detection.
+
 ### Self-Managed ASV Tuning
 
 This tool was built by someone self-managing their ASV after sleep medicine proved useless for UARS and high loop gain ("it's just TeCsA" 🙄).
@@ -302,6 +331,9 @@ OscilloBreath/
 ├── lyapunov_longitudinal.py       # Longitudinal LLE tracker
 ├── bifurcation_detector.py        # Find collapse points, compute Reynolds numbers
 ├── bifurcation_longitudinal.py    # Longitudinal bifurcation analysis
+├── wavelet_analyzer.py            # Time-frequency analysis (single night)
+├── wavelet_longitudinal.py        # Longitudinal wavelet metrics (all candidates)
+├── pbi_longitudinal.py            # PBI + LF Power tracker (focused metrics)
 ├── debug_periodicity.py           # Diagnostic: LLE distribution for threshold calibration
 ├── philips_loader.py              # Philips DreamStation parser + decryption
 ├── data_loader.py                 # Universal loader (auto-detects format, now with pressure)
@@ -317,6 +349,9 @@ OscilloBreath/
 ├── run_lyapunov_longitudinal.bat  # Launch longitudinal LLE tracker
 ├── run_bifurcation.bat            # Launch bifurcation detector
 ├── run_bifurcation_longitudinal.bat # Launch longitudinal bifurcation analysis
+├── run_wavelet.bat                # Launch wavelet analysis (single night)
+├── run_wavelet_longitudinal.bat   # Launch longitudinal wavelet analysis
+├── run_pbi.bat                    # Launch PBI + LF Power tracker
 ├── run_debug_periodicity.bat      # Launch LLE diagnostic tool
 ├── run_csv_to_edf.bat             # Launch CSV to EDF converter
 ├── requirements.txt               # Python dependencies
