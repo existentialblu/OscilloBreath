@@ -1,6 +1,7 @@
 # Output files
 output/
 *.html
+!resound/index.html
 
 # Python
 __pycache__/

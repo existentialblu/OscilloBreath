@@ -1,0 +1,20 @@
+{
+  "name": "Resound — Resonant Breathing",
+  "short_name": "Resound",
+  "description": "Precision-timed resonant breathing with calm audio guidance. Eyes-closed friendly.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0a0a0f",
+  "theme_color": "#0a0a0f",
+  "categories": ["health", "lifestyle", "utilities"],
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
